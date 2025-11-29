@@ -61,6 +61,83 @@
       // Map
       const map = L.map("map").setView([centerLat, centerLon], 17);
 
+      // Qt'den gelen layer visibility bilgisi
+      const layerVisibility = {
+        // örnek: "group_trenches": true/false,
+        //        "trench_5": true/false,
+        //        "group_finds": true/false,
+        //        "find_10": true/false
+      };
+
+      function applyQtVisibilityToLayers() {
+        const groupTrenchesVisible =
+          layerVisibility["group_trenches"] !== false; // undefined -> true
+        const groupFindsVisible = layerVisibility["group_finds"] !== false;
+
+        // Açmalar (trenchLayers: id -> L.Polygon)
+        Object.entries(trenchLayers).forEach(([idStr, layer]) => {
+          const id = parseInt(idStr, 10);
+          const key = `trench_${id}`;
+
+          const selfVisible = layerVisibility[key] !== false; // undefined -> true
+          const finalVisible = groupTrenchesVisible && selfVisible;
+
+          if (finalVisible) {
+            if (!map.hasLayer(layer)) {
+              layer.addTo(map);
+            }
+          } else {
+            if (map.hasLayer(layer)) {
+              map.removeLayer(layer);
+            }
+          }
+        });
+
+        // Buluntular (findLayers: id -> L.CircleMarker / L.Marker)
+        Object.entries(findLayers).forEach(([idStr, layer]) => {
+          const id = parseInt(idStr, 10);
+          const key = `find_${id}`;
+
+          const selfVisible = layerVisibility[key] !== false;
+          const finalVisible = groupFindsVisible && selfVisible;
+
+          if (finalVisible) {
+            if (!map.hasLayer(layer)) {
+              layer.addTo(map);
+            }
+          } else {
+            if (map.hasLayer(layer)) {
+              map.removeLayer(layer);
+            }
+          }
+        });
+      }
+
+      function setLayerVisibilityFromQt(layerKey, visible) {
+        // Qt'den gelen anahtarı kaydet
+        layerVisibility[layerKey] = visible;
+
+        // Hangi gruba aitse ilgili katmanları güncelle
+        if (layerKey === "group_trenches") {
+          // tüm açmalar
+          applyQtVisibilityToLayers();
+        } else if (layerKey.startsWith("trench_")) {
+          applyQtVisibilityToLayers();
+        } else if (layerKey === "group_finds") {
+          // tüm buluntular
+          applyQtVisibilityToLayers();
+        } else if (layerKey.startsWith("find_")) {
+          applyQtVisibilityToLayers();
+        } else {
+          // şimdilik diğer anahtarları (levels vs.) yok say
+          applyQtVisibilityToLayers();
+        }
+      }
+
+      // Qt erişsin diye global'e aç
+      window.setLayerVisibilityFromQt = setLayerVisibilityFromQt;
+      window._applyQtVisibilityToLayers = applyQtVisibilityToLayers;
+
       // Offline raster’lar için tek pane
       const rasterPane = map.createPane("rasterPane");
       rasterPane.style.zIndex = 350; // OSM'in üstünde
@@ -499,6 +576,9 @@
           const layer = trenchLayers[tid];
           if (layer) layer.addTo(map);
         });
+      }
+      if (window._applyQtVisibilityToLayers) {
+        window._applyQtVisibilityToLayers();
       }
 
       const filterInput = document.getElementById("filter-input");

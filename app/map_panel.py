@@ -8,8 +8,6 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtWidgets import (
     QWidget,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QHBoxLayout,
     QSplitter,
@@ -17,10 +15,15 @@ from PyQt6.QtWidgets import (
     QMessageBox,
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+
 from core.map_data import load_map_data, MapData
 from core.utils import WEB_DIR
-
 from core.theme import build_map_css_vars
+
+from app.layer_tree import LayerTreeWidget
+
+# Haritada kullanacağımız payload için ayrı bir rol:
+MAP_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 class MapPanel(QWidget):
@@ -28,34 +31,59 @@ class MapPanel(QWidget):
         super().__init__(parent)
         self.main_window = main_window
 
-        # Sol ağaç
-        self.layer_tree = QTreeWidget()
-        self.layer_tree.setHeaderLabels(["Katmanlar"])
+        # ---------------------------
+        # SOL: Katman ağacı (LayerTreeWidget)
+        # ---------------------------
+        self.layers_tree = LayerTreeWidget(self)
 
-        self.trenches_root = QTreeWidgetItem(["Açmalar"])
-        self.finds_root = QTreeWidgetItem(["Buluntular"])
-        self.levels_root = QTreeWidgetItem(["Seviyeler"])
+        # Kök gruplar – Photoshop mantığında "grup layer" gibi
+        self.trenches_root = self.layers_tree.add_layer_item(
+            parent_item=None,
+            label="Açmalar",
+            layer_key="group_trenches",
+            visible=True,
+        )
+        self.finds_root = self.layers_tree.add_layer_item(
+            parent_item=None,
+            label="Buluntular",
+            layer_key="group_finds",
+            visible=True,
+        )
+        self.levels_root = self.layers_tree.add_layer_item(
+            parent_item=None,
+            label="Seviyeler",
+            layer_key="group_levels",
+            visible=True,
+        )
 
-        self.layer_tree.addTopLevelItem(self.trenches_root)
-        self.layer_tree.addTopLevelItem(self.finds_root)
-        self.layer_tree.addTopLevelItem(self.levels_root)
+        self.layers_tree.expandAll()
 
-        self.layer_tree.expandAll()
+        # Seçim değişince haritada odaklama
+        self.layers_tree.currentItemChanged.connect(self.on_layer_item_selected)
 
-        # Sağ: WebEngine (Leaflet)
+        # Göz ikonları (visibility) değişince ileride haritaya yansıtmak için sinyal
+        self.layers_tree.layerVisibilityChanged.connect(
+            self.on_layer_visibility_changed
+        )
+
+        # ---------------------------
+        # SAĞ: WebEngine (Leaflet)
+        # ---------------------------
         self.map_view = QWebEngineView()
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.layer_tree)
+        splitter.addWidget(self.layers_tree)
         splitter.addWidget(self.map_view)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 4)
 
-        # Üst araçlar barı
+        # ---------------------------
+        # ÜST ARAÇ ÇUBUĞU
+        # ---------------------------
         top_bar = QHBoxLayout()
 
         # Offline tile indirme
-        btn_offline_tiles = QPushButton("Offline Tile İndir")
+        btn_offline_tiles = QPushButton("Çevrimdışı Harita Ekle")
         btn_offline_tiles.clicked.connect(self.on_offline_tiles_clicked)
         top_bar.addWidget(btn_offline_tiles)
 
@@ -66,14 +94,13 @@ class MapPanel(QWidget):
 
         top_bar.addStretch()
 
+        # Ana layout
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addLayout(top_bar)
         main_layout.addWidget(splitter)
 
         self.setLayout(main_layout)
-
-        self.layer_tree.currentItemChanged.connect(self.on_layer_item_selected)
 
         # İlk yükleme
         self.refresh_map()
@@ -88,7 +115,7 @@ class MapPanel(QWidget):
             QMessageBox.warning(
                 self,
                 "Eksik Özellik",
-                "Offline tile indirme fonksiyonu ana pencerede tanımlı değil.",
+                "Çevrimdışı harita indirme fonksiyonu ana pencerede tanımlı değil.",
             )
 
     def on_import_geotiff_clicked(self):
@@ -103,13 +130,16 @@ class MapPanel(QWidget):
             )
 
     def on_layer_item_selected(self, current, previous):
+        """Soldaki ağaçta seçim değişince haritayı odakla / filtrele."""
         if current is None:
             return
 
-        data = current.data(0, Qt.ItemDataRole.UserRole)
+        # Harita payload'ını MAP_ROLE'den okuyoruz
+        data = current.data(0, MAP_ROLE)
 
         if data is None:
-            text = current.text(0)
+            # Root grup tıklandı (Açmalar / Buluntular / Seviyeler)
+            text = current.text(1) if current.text(1) else current.text(0)
             if text == "Açmalar":
                 self.map_view.page().runJavaScript(
                     "applyFilter(''); focusOnAllTrenches();"
@@ -117,6 +147,7 @@ class MapPanel(QWidget):
             elif text == "Buluntular":
                 self.map_view.page().runJavaScript("applyFilter('buluntular');")
             elif text == "Seviyeler":
+                # Şimdilik özel bir odak yok; istersen buraya z-range odak ekleriz.
                 pass
             return
 
@@ -136,28 +167,46 @@ class MapPanel(QWidget):
             js_code = f"applyFilter({escaped});"
             self.map_view.page().runJavaScript(js_code)
 
+    def on_layer_visibility_changed(self, layer_key: str, visible: bool):
+        """
+        Photoshop mantığı: Soldaki göz ikonları değişince çağrılır.
+        Buradan Leaflet tarafına "şu layer grubu görünür/gizli" sinyali gönderebiliriz.
+        Şimdilik JS tarafıyla bağlantı basit tutuldu; map_template.html'e
+        window.setLayerVisibilityFromQt(...) eklediğimizde tam çalışır hale gelir.
+        """
+        js = (
+            "if (window.setLayerVisibilityFromQt) "
+            f"setLayerVisibilityFromQt({json.dumps(layer_key)}, {str(visible).lower()});"
+        )
+        self.map_view.page().runJavaScript(js)
+
     # ------------------ Harita yenileme ------------------
 
     def refresh_map(self):
         md: MapData = load_map_data()
 
-        # Sol ağaç doldur
+        # Sol ağaç: köklerin çocuklarını temizle
         self.trenches_root.takeChildren()
         self.finds_root.takeChildren()
         self.levels_root.takeChildren()
 
         trenches_by_id: dict[int, dict] = {t["id"]: t for t in md.trenches}
 
-        # Açmalar
+        # --- Açmalar ---
         for t in md.trenches:
             label = t["code"]
             if t.get("name"):
                 label += f" – {t['name']}"
-            item = QTreeWidgetItem([label])
-            item.setData(0, Qt.ItemDataRole.UserRole, ("trench", t["id"]))
-            self.trenches_root.addChild(item)
+            item = self.layers_tree.add_layer_item(
+                parent_item=self.trenches_root,
+                label=label,
+                layer_key=f"trench_{t['id']}",
+                visible=True,
+            )
+            # Haritada kullanacağımız payload:
+            item.setData(0, MAP_ROLE, ("trench", t["id"]))
 
-        # Buluntular → açmalara göre grupla
+        # --- Buluntular → açmalara göre grupla ---
         finds_by_trench: dict[int, list[dict]] = {}
         for f in md.finds:
             finds_by_trench.setdefault(f["trench_id"], []).append(f)
@@ -171,19 +220,27 @@ class MapPanel(QWidget):
             else:
                 tlabel = f"Açma {trench_id}"
 
-            trench_item = QTreeWidgetItem([tlabel])
-            trench_item.setData(0, Qt.ItemDataRole.UserRole, ("trench", trench_id))
-            self.finds_root.addChild(trench_item)
+            trench_item = self.layers_tree.add_layer_item(
+                parent_item=self.finds_root,
+                label=tlabel,
+                layer_key=f"finds_trench_{trench_id}",
+                visible=True,
+            )
+            trench_item.setData(0, MAP_ROLE, ("trench", trench_id))
 
             for f in flist:
                 label = f"{f['code']}"
                 if f.get("description"):
                     label += f" – {f['description'][:30]}"
-                find_item = QTreeWidgetItem([label])
-                find_item.setData(0, Qt.ItemDataRole.UserRole, ("find", f["id"]))
-                trench_item.addChild(find_item)
+                find_item = self.layers_tree.add_layer_item(
+                    parent_item=trench_item,
+                    label=label,
+                    layer_key=f"find_{f['id']}",
+                    visible=True,
+                )
+                find_item.setData(0, MAP_ROLE, ("find", f["id"]))
 
-        # Seviyeler
+        # --- Seviyeler ---
         levels_map: dict[int, dict] = {}
         for f in md.finds:
             lid = f["level_id"]
@@ -199,13 +256,17 @@ class MapPanel(QWidget):
             label = info["name"]
             if t_codes:
                 label += f" – Açmalar: {t_codes}"
-            item = QTreeWidgetItem([label])
-            item.setData(0, Qt.ItemDataRole.UserRole, ("level", info["name"]))
-            self.levels_root.addChild(item)
+            item = self.layers_tree.add_layer_item(
+                parent_item=self.levels_root,
+                label=label,
+                layer_key=f"level_{lid}",
+                visible=True,
+            )
+            item.setData(0, MAP_ROLE, ("level", info["name"]))
 
-        self.layer_tree.expandAll()
+        self.layers_tree.expandAll()
 
-        # HTML template yükle
+        # --- HTML template yükle ---
         template_path = WEB_DIR / "map_template.html"
         template_html = template_path.read_text(encoding="utf-8")
 

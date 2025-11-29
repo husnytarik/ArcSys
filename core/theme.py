@@ -2,103 +2,108 @@
 
 """
 Uygulama genel tema ayarları.
-Nötr, gri tonlu, açık ve okunaklı bir tema.
-Hem Qt hem Leaflet arayüzü tek yerden yönetilir.
+Tek bir yerden hem Qt (QSS) hem de harita (CSS değişkenleri) kontrol edilir.
+Nötr, düşük kontrastlı gri tema.
 """
 
 THEME = {
     # Font
     "font_main": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    # Çok açık nötr gri arka plan
-    "color_bg": "#F3F3F3",  # nötr açık gri
-    "color_text": "#1A1A1A",  # koyu gri, saf nötr (siyah değil)
-    # Paneller
-    "panel_bg": "#FFFFFF",  # beyaz
-    "panel_border": "rgba(0, 0, 0, 0.12)",
-    "panel_shadow": "0 8px 22px rgba(0, 0, 0, 0.10)",
-    # Accent (nötr orta gri — sıfır renk)
-    "color_accent": "#5A5A5A",  # tamamen nötr gri
-    # Input / filtre
-    "filter_bg": "#E5E5E5",  # açık gri
-    "filter_border": "rgba(0, 0, 0, 0.18)",
-    "filter_placeholder": "rgba(40, 40, 40, 0.50)",
-    # Zoom butonları → text rengi gibi
-    "zoom_text_color": "#1A1A1A",
-    # Layer listesi
-    "layer_item_bg": "#F6F6F6",  # nötr gri
+    # Genel arka plan ve metin
+    "color_bg": "#D8D8D8",
+    "color_text": "#222222",
+    # Paneller / kartlar
+    "panel_bg": "#F2F2F2",
+    "panel_border": "#C8C8C8",  # basit renk, QSS için sorunsuz
+    "panel_shadow": "0 6px 16px rgba(0, 0, 0, 0.25)",
+    "color_accent": "#3A6EA5",
+    # Filtre input (harita)
+    "filter_bg": "#F0F0F0",
+    "filter_border": "#B8B8B8",
+    "filter_placeholder": "rgba(0, 0, 0, 0.45)",
+    # Zoom buton metin rengi (harita)
+    "zoom_text_color": "#222222",
+    # Layer listeleri (harita paneli)
+    "layer_item_bg": "#EAEAEA",
     "layer_item_hover_bg": "#E0E0E0",
-    "layer_item_drag_bg": "rgba(90, 90, 90, 0.18)",
-    # Legend
-    "legend_text": "#2A2A2A",
-    "legend_header_text": "#0F0F0F",
-    "legend_scale_title": "#3A3A3A",
-    "legend_z_text": "#6A6A6A",
-    # Header
-    "header_bg": "#E4E4E4",
-    "header_text": "#1A1A1A",
+    "layer_item_drag_bg": "rgba(0, 0, 0, 0.08)",
+    # Legend / lejant (harita)
+    "legend_text": "#222222",
+    "legend_header_text": "#222222",
+    "legend_scale_title": "#333333",
+    "legend_z_text": "#444444",
+    # Header (Qt üst bar)
+    "header_bg": "#C0C0C0",
+    "header_text": "#222222",
     "header_font_size": 15,
-    # Tabs
-    "tab_bg": "#E7E7E7",
-    "tab_text": "#1F1F1F",
-    "tab_selected_bg": "#FFFFFF",
-    "tab_selected_text": "#111111",
-    # Status bar
-    "status_bg": "#E3E3E3",
-    "status_text": "#1A1A1A",
-    # Progress bar
-    "progress_bg": "#D0D0D0",
-    "progress_chunk": "#5A5A5A",  # nötr gri accent ile aynı
+    # Tab widget (Qt)
+    "tab_bg": "#D2D2D2",
+    "tab_text": "#222222",
+    "tab_selected_bg": "#E2E2E2",
+    "tab_selected_text": "#000000",
+    # Status bar / loading bar (Qt)
+    "status_bg": "#C8C8C8",
+    "status_text": "#222222",
+    "progress_bg": "#E0E0E0",
+    "progress_chunk": "#3A6EA5",
+    # Sol katman paneli (QTreeWidget)
+    "tree_bg": "#E5E5E5",
+    "tree_text": "#222222",
+    "tree_text_hidden": "#888888",
+    "tree_border": "#C6C6C6",
+    "tree_selected_bg": "#D0D0D0",
 }
 
 
 def build_qt_stylesheet() -> str:
-    """Qt için genel uygulama stylesheet oluşturur."""
+    """
+    Uygulama genel QSS (Qt StyleSheet) üretir.
+    MainWindow içinde self.setStyleSheet(...) ile kullanılıyor.
+    """
     t = THEME
     return f"""
     QWidget {{
-        font-family: {t["font_main"]};
-        color: {t["color_text"]};
-        background-color: {t["color_bg"]};
+        font-family: {t['font_main']};
+        color: {t['color_text']};
+        background-color: {t['color_bg']};
     }}
 
     QLabel#HeaderLabel {{
-        background-color: {t["header_bg"]};
-        color: {t["header_text"]};
+        background-color: {t['header_bg']};
+        color: {t['header_text']};
         padding: 8px 12px;
-        font-size: {t["header_font_size"]}px;
+        font-size: {t['header_font_size']}px;
         font-weight: bold;
     }}
 
-    /* TABLAR */
     QTabWidget::pane {{
-        border: 1px solid {t["panel_border"]};
-        background: {t["tab_bg"]};
+        border: 1px solid {t['panel_border']};
+        background: {t['tab_bg']};
     }}
 
     QTabBar::tab {{
-        background: {t["tab_bg"]};
-        color: {t["tab_text"]};
+        background: {t['tab_bg']};
+        color: {t['tab_text']};
         padding: 6px 12px;
-        border: 1px solid {t["panel_border"]};
+        border: 1px solid {t['panel_border']};
         border-bottom: none;
         margin-right: 2px;
     }}
 
     QTabBar::tab:selected {{
-        background: {t["tab_selected_bg"]};
-        color: {t["tab_selected_text"]};
+        background: {t['tab_selected_bg']};
+        color: {t['tab_selected_text']};
     }}
 
-    /* STATUS BAR + LOADING */
     QStatusBar {{
-        background: {t["status_bg"]};
-        color: {t["status_text"]};
+        background: {t['status_bg']};
+        color: {t['status_text']};
     }}
 
     QProgressBar#LoadingProgressBar {{
-        background: {t["progress_bg"]};
-        color: {t["status_text"]};
-        border: 1px solid {t["panel_border"]};
+        background: {t['progress_bg']};
+        color: {t['status_text']};
+        border: 1px solid {t['panel_border']};
         border-radius: 4px;
         text-align: center;
         min-height: 12px;
@@ -106,56 +111,38 @@ def build_qt_stylesheet() -> str:
     }}
 
     QProgressBar#LoadingProgressBar::chunk {{
-        background-color: {t["progress_chunk"]};
+        background-color: {t['progress_chunk']};
     }}
 
-    /* SOLDKİ KATMAN PANELİ TİPİ WIDGET'LAR */
-
-    /* Eğer o panel QGroupBox ise başlık ve gövde */
-    QGroupBox {{
-        background-color: {t["panel_bg"]};
-        border: 1px solid {t["panel_border"]};
-        border-radius: 4px;
-        margin-top: 6px;
+    /* Sol katman paneli (QTreeWidget) */
+    QTreeWidget {{
+        background: {t['tree_bg']};
+        border: 1px solid {t['tree_border']};
+        color: {t['tree_text']};
+        font-size: 12px;
     }}
 
-    QGroupBox::title {{
-        subcontrol-origin: margin;
-        left: 6px;
-        padding: 0 4px;
-        color: {t["color_text"]};
-        background: transparent;
+    QTreeWidget::item {{
+        padding: 4px 6px;
+        color: {t['tree_text']};
     }}
 
-    /* QTreeWidget / QTreeView + içindeki viewport'u da boya */
-    QTreeWidget, QTreeView {{
-        background-color: {t["panel_bg"]};
-        alternate-background-color: {t["layer_item_bg"]};
-        border: 1px solid {t["panel_border"]};
-        show-decoration-selected: 1;
+    QTreeWidget::item:selected {{
+        background: {t['tree_selected_bg']};
+        color: {t['tree_text']};
     }}
 
-    QTreeWidget::viewport, QTreeView::viewport {{
-        background-color: {t["panel_bg"]};
-    }}
-
-    QTreeWidget::item, QTreeView::item {{
-        height: 18px;
-    }}
-
-    QTreeWidget::item:selected, QTreeView::item:selected {{
-        background: {t["layer_item_hover_bg"]};
-        color: {t["color_text"]};
-    }}
-
-    QTreeWidget::item:hover, QTreeView::item:hover {{
-        background: {t["layer_item_hover_bg"]};
+    QTreeWidget::item:hover {{
+        background: rgba(0, 0, 0, 0.04);
     }}
     """
 
 
 def build_map_css_vars() -> str:
-    """Leaflet map_template.html için CSS değişkenleri üretir."""
+    """
+    map_template.html içindeki :root bloğu için CSS değişkenleri üretir.
+    __THEME_CSS_VARS__ placeholder'ına basılacak.
+    """
     t = THEME
     lines = [
         f"--font-main: {t['font_main']};",
@@ -176,6 +163,6 @@ def build_map_css_vars() -> str:
         f"--legend-header-text: {t['legend_header_text']};",
         f"--legend-scale-title: {t['legend_scale_title']};",
         f"--legend-z-text: {t['legend_z_text']};",
-        f"--panel-radius: 2px;",
     ]
+    # map_template.html'de düzgün girintili görünmesi için başına 8 boşluk ekleyelim
     return "\n        ".join(lines)
