@@ -1,8 +1,7 @@
 # app/main_window.py
 import os
-from typing import Optional
 import sys
-from pathlib import Path
+from typing import Optional
 
 from PyQt6.QtCore import Qt, QCoreApplication
 from PyQt6.QtWidgets import (
@@ -18,8 +17,9 @@ from PyQt6.QtWidgets import (
     QInputDialog,
 )
 
+from pathlib import Path
+
 from core.tiles_offline import download_osm_tiles_for_active_project
-from .loading_bar import LoadingBarWidget
 from core.geotiff import import_geotiff_for_project
 from core.db import (
     DB_PATH,
@@ -27,13 +27,20 @@ from core.db import (
     get_active_project_id,
     set_active_project_id,
 )
+from core.theme import build_qt_stylesheet
+
 from app.tabs import ProjectDetailsTab, TrenchesTab, FindsTab, ReportsTab
 from app.map_panel import MapPanel
+from app.loading_bar import LoadingBarWidget
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        # Uygulamanın genel QSS'ini (tema) uygula
+        # Tüm widget'lar theme.py içindeki build_qt_stylesheet'ten beslenecek.
+        self.setStyleSheet(build_qt_stylesheet())
 
         # --- Aktif proje bilgisi ---
         self.current_project_id: Optional[int] = get_active_project_id()
@@ -66,17 +73,10 @@ class MainWindow(QMainWindow):
             pass
 
         self.header_label = QLabel(header_text)
-        self.header_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #333333;
-                color: #f0f0f0;
-                padding: 8px 12px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            """
-        )
+        # QSS tarafında stil uygulayabilmek için objectName veriyoruz
+        # theme.py içindeki build_qt_stylesheet() içinde QLabel#HeaderLabel bölümü ile kontrol edersin.
+        self.header_label.setObjectName("HeaderLabel")
+
         central_layout.addWidget(self.header_label)
 
         # Üstte sekmeler, altta harita olacak şekilde dikey splitter
@@ -107,9 +107,12 @@ class MainWindow(QMainWindow):
         # Proje değişince diğerlerini güncelle
         self.project_tab.projectChanged.connect(self.on_project_changed)
 
-        # ALTTAKİ LOADING BAR'I BAŞTAN OLUŞTUR
+        # Alt loading bar'ı en baştan oluştur
         self._setup_loading_bar()
 
+    # ------------------------------------
+    # Offline tile indirme UI
+    # ------------------------------------
     def download_offline_tiles_ui(self):
         """Kazı merkezi etrafında buffer + min/max zoom ile offline tile indirir."""
 
@@ -228,6 +231,9 @@ class MainWindow(QMainWindow):
         # Haritayı yenile ki sağ üstte layer listesine yansısın
         self.map_panel.refresh_map()
 
+    # ------------------------------------
+    # GeoTIFF ortofoto içe aktarma
+    # ------------------------------------
     def import_geotiff_orthophoto(self):
         """Aktif proje için GeoTIFF ortofoto içe aktarır ve alt bardan takip eder."""
         if not self.current_project_code:
@@ -286,6 +292,9 @@ class MainWindow(QMainWindow):
         self.finds_tab.load_finds()
         self.map_panel.load_embedded_leaflet_map()
 
+    # ------------------------------------
+    # Alt loading bar kurulumu
+    # ------------------------------------
     def _setup_loading_bar(self):
         """En altta, sadece gerektiğinde görünen ince loading bar oluşturur."""
         # Status bar yoksa oluştur
@@ -342,6 +351,9 @@ class MainWindow(QMainWindow):
 
         self.loading_bar.hide()
 
+    # ------------------------------------
+    # Yardımcı: proje kodu yükleme
+    # ------------------------------------
     def _load_project_code(self, project_id: int | None) -> str | None:
         """Verilen project_id için projects.code döner; yoksa None."""
         if not project_id:
@@ -374,7 +386,6 @@ def create_app():
         )
         return None, None
 
-        # Eğer DB yoksa Qt uygulaması oluşturulmadan çıkılır
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()

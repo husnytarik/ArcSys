@@ -20,6 +20,8 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from core.map_data import load_map_data, MapData
 from core.utils import WEB_DIR
 
+from core.theme import build_map_css_vars
+
 
 class MapPanel(QWidget):
     def __init__(self, main_window, parent=None):
@@ -207,13 +209,16 @@ class MapPanel(QWidget):
         template_path = WEB_DIR / "map_template.html"
         template_html = template_path.read_text(encoding="utf-8")
 
+        theme_vars = build_map_css_vars()
+
         html = (
-            template_html.replace("__TRENCHES_JSON__", json.dumps(md.trenches))
+            template_html.replace("__THEME_CSS_VARS__", theme_vars)
+            .replace("__TRENCHES_JSON__", json.dumps(md.trenches))
             .replace("__FINDS_JSON__", json.dumps(md.finds))
             .replace("__LAYERS_JSON__", json.dumps(md.layers))
             .replace("__CENTER_LAT__", str(md.center_lat))
             .replace("__CENTER_LON__", str(md.center_lon))
-            .replace("__ERROR_MSG__", md.error_message.replace('"', '\\"'))
+            .replace("__ERROR_MSG__", (md.error_message or "").replace('"', '\\"'))
         )
 
         base_url = QUrl.fromLocalFile(str(WEB_DIR) + os.sep)

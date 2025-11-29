@@ -1,0 +1,269 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--color-bg);
+  font-family: var(--font-main);
+}
+
+#map {
+  position: absolute;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 kısaltması */
+}
+
+/* ---------------------------
+   Filtre input'u (üst sol)
+---------------------------- */
+#filter-container {
+  position: absolute;
+  top: 10px;
+  left: 60px;
+  z-index: 1000;
+}
+
+#filter-input {
+  padding: 4px 9px;
+  font-size: 11px;
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--filter-border);
+  background: var(--filter-bg);
+  color: var(--color-text);
+  min-width: 230px;
+  outline: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+#filter-input::placeholder {
+  color: var(--filter-placeholder);
+}
+
+#filter-input:focus {
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------------------------
+   Leaflet genel kontrol stili
+---------------------------- */
+
+.leaflet-control {
+  font-family: var(--font-main);
+  font-size: 11px;
+}
+
+/* Zoom butonları */
+.leaflet-control-zoom.leaflet-bar {
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+  background: var(--panel-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: transparent;
+  border: none;
+  color: var(--zoom-text-color);
+}
+
+.leaflet-bar a {
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  font-size: 16px;
+}
+
+.leaflet-bar a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ---------------------------
+   Özel Layers Paneli (sağ üst)
+---------------------------- */
+#layer-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1100;
+  max-width: 260px;
+  color: var(--color-text);
+  background: var(--panel-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  font-size: 11px;
+  overflow: hidden;
+}
+
+#layer-panel.collapsed #layer-panel-body {
+  display: none;
+}
+
+#layer-panel-header {
+  padding: 6px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--panel-bg);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#layer-panel-header span.title {
+  font-size: 11px;
+}
+
+#layer-panel-header span.toggle-icon {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+#layer-panel-body {
+  padding: 4px 6px 6px 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.layer-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-radius: var(--panel-radius);
+  margin-bottom: 2px;
+  background: var(--layer-item-bg);
+}
+
+.layer-item.dragging {
+  opacity: 0.6;
+  background: var(--layer-item-drag-bg);
+}
+
+.layer-checkbox {
+  margin: 0;
+}
+
+.layer-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.layer-slider {
+  width: 70px;
+}
+
+.layer-slider input[type="range"] {
+  width: 100%;
+}
+
+.layer-handle {
+  cursor: grab;
+  font-size: 12px;
+  opacity: 0.6;
+  user-select: none;
+}
+
+.layer-item:hover {
+  background: var(--layer-item-hover-bg);
+}
+
+/* ---------------------------
+   Lejant (alt sağ) - açılır/kapanır
+---------------------------- */
+.info.legend {
+  padding: 0;
+  border-radius: var(--panel-radius);
+  background: transparent;
+}
+
+.legend-card {
+  padding: 0;
+  border-radius: var(--panel-radius);
+  background: var(--panel-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  max-width: 220px;
+}
+
+.legend-header {
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--panel-bg);
+  color: var(--legend-header-text);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.legend-header .toggle-icon {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.legend-body {
+  padding: 4px 8px 6px 8px;
+}
+
+.legend-card.collapsed .legend-body {
+  display: none;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: var(--legend-text);
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--panel-radius);
+}
+
+.legend-swatch.round {
+  border-radius: var(--panel-radius);
+}
+
+.legend-scale-title {
+  font-size: 10px;
+  margin-top: 6px;
+  margin-bottom: 2px;
+  color: var(--legend-scale-title);
+}
+
+.legend-scale-bar {
+  width: 140px;
+  height: 10px;
+  border-radius: var(--panel-radius);
+  background: linear-gradient(to right, #0000ff, #00ffff, #ffff00, #ff0000);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+.legend-z-text {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--legend-z-text);
+}
