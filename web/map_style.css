@@ -12,18 +12,27 @@ body {
   inset: 0; /* top:0; right:0; bottom:0; left:0 kısaltması */
 }
 
-/* ---------------------------
-   Filtre input'u (üst sol)
----------------------------- */
+/* === FİLTRE PANELİ GENEL === */
+
 #filter-container {
   position: absolute;
   top: 10px;
   left: 60px;
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--panel-radius);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 10px 24px var(--panel-shadow, rgba(0, 0, 0, 0.45));
 }
 
+/* Metin filtresi */
+
 #filter-input {
-  padding: 4px 9px;
+  padding: 4px 8px;
   font-size: 11px;
   border-radius: var(--panel-radius);
   border: 1px solid var(--filter-border);
@@ -31,9 +40,6 @@ body {
   color: var(--color-text);
   min-width: 230px;
   outline: none;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 #filter-input::placeholder {
@@ -41,8 +47,154 @@ body {
 }
 
 #filter-input:focus {
-  border-color: rgba(255, 255, 255, 0.32);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6);
+  border-color: var(--color-accent, #ffffff);
+  box-shadow: 0 0 0 1px var(--color-accent, #ffffff);
+}
+
+/* Tarih aralığı */
+
+.date-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#date-from,
+#date-to {
+  padding: 3px 6px;
+  font-size: 11px;
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--filter-border);
+  background: var(--filter-bg);
+  color: var(--color-text);
+  outline: none;
+  min-width: 110px;
+}
+
+#date-from::placeholder,
+#date-to::placeholder {
+  color: var(--filter-placeholder);
+}
+
+#date-from:focus,
+#date-to:focus {
+  border-color: var(--color-accent, #ffffff);
+}
+
+.filter-separator {
+  font-size: 11px;
+  color: var(--filter-placeholder);
+}
+
+#date-filter-clear {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: 999px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#date-filter-clear:hover {
+  background: var(--panel-border);
+}
+
+/* === SEVİYE (Z) SLIDER === */
+
+#depth-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+#depth-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.depth-title {
+  font-weight: 600;
+}
+
+#depth-range-label {
+  font-size: 11px;
+}
+
+/* Barın kendisi (dış çerçeve + arka plan) */
+
+#depth-slider-row {
+  position: relative;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  border-radius: 999px;
+  background: var(--filter-bg); /* temadan */
+  box-shadow: inset 0 0 0 1px var(--filter-border);
+}
+
+/* İki range’i üst üste bindiriyoruz */
+
+#depth-min,
+#depth-max {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  position: absolute;
+  pointer-events: none; /* sadece thumb tıklanabilir */
+  background: transparent;
+}
+
+/* Track'leri görünmez, renk JS ile parent'tan geliyor */
+
+#depth-min::-webkit-slider-runnable-track,
+#depth-max::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+#depth-min::-moz-range-track,
+#depth-max::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+/* Thumb – temadan gelen nötr görünüm */
+
+#depth-min::-webkit-slider-thumb,
+#depth-max::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 11px;
+  width: 11px;
+  border-radius: 999px;
+  background: var(--panel-bg); /* temadan */
+  border: 1px solid var(--color-accent, var(--panel-border));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  pointer-events: all;
+  margin-top: -4px;
+}
+#depth-min::-moz-range-thumb,
+#depth-max::-moz-range-thumb {
+  height: 11px;
+  width: 11px;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  border: 1px solid var(--color-accent, var(--panel-border));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  pointer-events: all;
 }
 
 /* ---------------------------

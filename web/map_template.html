@@ -23,6 +23,188 @@
         }
       });
     </script>
+
+    <style>
+      /* --- Filtre paneli ve slider için ek/minimal stiller --- */
+
+      #filter-container {
+        position: absolute;
+        top: 10px;
+        left: 60px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: var(--panel-radius);
+        background: var(--panel-bg);
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid var(--panel-border);
+      }
+
+      #filter-input {
+        padding: 4px 9px;
+        font-size: 11px;
+        border-radius: var(--panel-radius);
+        border: 1px solid var(--filter-border);
+        background: var(--filter-bg);
+        color: var(--color-text);
+        min-width: 230px;
+        outline: none;
+      }
+
+      #filter-input::placeholder {
+        color: var(--filter-placeholder);
+      }
+
+      #filter-input:focus {
+        border-color: rgba(255, 255, 255, 0.32);
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6);
+      }
+
+      .date-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #date-from,
+      #date-to {
+        padding: 3px 6px;
+        font-size: 11px;
+        border-radius: var(--panel-radius);
+        border: 1px solid var(--filter-border);
+        background: var(--filter-bg);
+        color: var(--color-text);
+        outline: none;
+        min-width: 110px;
+      }
+
+      #date-from::placeholder,
+      #date-to::placeholder {
+        color: var(--filter-placeholder);
+      }
+
+      #date-from:focus,
+      #date-to:focus {
+        border-color: rgba(255, 255, 255, 0.32);
+      }
+
+      .filter-separator {
+        font-size: 11px;
+        color: var(--filter-placeholder);
+      }
+
+      #date-filter-clear {
+        border: none;
+        background: var(--panel-bg);
+        color: var(--color-text-muted);
+        border-radius: 999px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #date-filter-clear:hover {
+        background: var(--panel-border);
+      }
+
+      /* === Seviye slider kısmı === */
+
+      #depth-filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-top: 2px;
+      }
+
+      #depth-label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: var(--color-text-muted);
+      }
+
+      .depth-title {
+        font-weight: 500;
+      }
+
+      #depth-range-label {
+        font-size: 11px;
+      }
+
+      #depth-slider-row {
+        position: relative;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 0;
+        /* Arka plan: dış bar (seçilmemiş alan) */
+        background: linear-gradient(
+          to right,
+          rgba(255, 255, 255, 0.14),
+          rgba(255, 255, 255, 0.14)
+        );
+      }
+
+      /* İki range’i üst üste bindiriyoruz */
+      #depth-min,
+      #depth-max {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        position: absolute;
+        pointer-events: none; /* thumb hariç */
+        background: transparent; /* aradaki rengi JS ile parent'a veriyoruz */
+      }
+
+      /* Track */
+      #depth-min::-webkit-slider-runnable-track,
+      #depth-max::-webkit-slider-runnable-track {
+        height: 4px;
+        border-radius: 999px;
+        background: transparent; /* arka planı parent'tan al */
+      }
+      #depth-min::-moz-range-track,
+      #depth-max::-moz-range-track {
+        height: 4px;
+        border-radius: 999px;
+        background: transparent;
+      }
+
+      /* Thumb */
+      #depth-min::-webkit-slider-thumb,
+      #depth-max::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 11px;
+        width: 11px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.55);
+        cursor: pointer;
+        pointer-events: all;
+        margin-top: -4px;
+      }
+      #depth-min::-moz-range-thumb,
+      #depth-max::-moz-range-thumb {
+        height: 11px;
+        width: 11px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.55);
+        cursor: pointer;
+        pointer-events: all;
+      }
+    </style>
   </head>
 
   <body>
@@ -30,10 +212,45 @@
 
     <!-- Filtre -->
     <div id="filter-container">
+      <!-- Metin filtresi -->
       <input
         id="filter-input"
-        placeholder="Filtre: buluntular / seviye (örn. Locus 1)"
+        placeholder="Metin filtresi: buluntu / açma / seviye"
       />
+
+      <!-- Tarih aralığı -->
+      <div class="date-filter-group">
+        <input
+          id="date-from"
+          type="text"
+          inputmode="numeric"
+          placeholder="gg.aa.yyyy"
+          title="Başlangıç tarihi (gg.aa.yyyy)"
+        />
+        <span class="filter-separator">–</span>
+        <input
+          id="date-to"
+          type="text"
+          inputmode="numeric"
+          placeholder="gg.aa.yyyy"
+          title="Bitiş tarihi (gg.aa.yyyy)"
+        />
+        <button id="date-filter-clear" title="Tarih filtresini temizle">
+          ×
+        </button>
+      </div>
+
+      <!-- Seviye (Z) aralığı slider -->
+      <div id="depth-filter-group">
+        <div id="depth-label-row">
+          <span class="depth-title">Seviye (Z):</span>
+          <span id="depth-range-label"></span>
+        </div>
+        <div id="depth-slider-row">
+          <input type="range" id="depth-min" step="0.01" />
+          <input type="range" id="depth-max" step="0.01" />
+        </div>
+      </div>
     </div>
 
     <!-- Özel Layers Panel -->
@@ -62,85 +279,51 @@
       const map = L.map("map").setView([centerLat, centerLon], 17);
 
       // Qt'den gelen layer visibility bilgisi
-      const layerVisibility = {
-        // örnek: "group_trenches": true/false,
-        //        "trench_5": true/false,
-        //        "group_finds": true/false,
-        //        "find_10": true/false
-      };
+      const layerVisibility = {};
 
       function applyQtVisibilityToLayers() {
         const groupTrenchesVisible =
-          layerVisibility["group_trenches"] !== false; // undefined -> true
+          layerVisibility["group_trenches"] !== false;
         const groupFindsVisible = layerVisibility["group_finds"] !== false;
 
-        // Açmalar (trenchLayers: id -> L.Polygon)
         Object.entries(trenchLayers).forEach(([idStr, layer]) => {
           const id = parseInt(idStr, 10);
           const key = `trench_${id}`;
-
-          const selfVisible = layerVisibility[key] !== false; // undefined -> true
+          const selfVisible = layerVisibility[key] !== false;
           const finalVisible = groupTrenchesVisible && selfVisible;
 
           if (finalVisible) {
-            if (!map.hasLayer(layer)) {
-              layer.addTo(map);
-            }
+            if (!map.hasLayer(layer)) layer.addTo(map);
           } else {
-            if (map.hasLayer(layer)) {
-              map.removeLayer(layer);
-            }
+            if (map.hasLayer(layer)) map.removeLayer(layer);
           }
         });
 
-        // Buluntular (findLayers: id -> L.CircleMarker / L.Marker)
         Object.entries(findLayers).forEach(([idStr, layer]) => {
           const id = parseInt(idStr, 10);
           const key = `find_${id}`;
-
           const selfVisible = layerVisibility[key] !== false;
           const finalVisible = groupFindsVisible && selfVisible;
 
           if (finalVisible) {
-            if (!map.hasLayer(layer)) {
-              layer.addTo(map);
-            }
+            if (!map.hasLayer(layer)) layer.addTo(map);
           } else {
-            if (map.hasLayer(layer)) {
-              map.removeLayer(layer);
-            }
+            if (map.hasLayer(layer)) map.removeLayer(layer);
           }
         });
       }
 
       function setLayerVisibilityFromQt(layerKey, visible) {
-        // Qt'den gelen anahtarı kaydet
         layerVisibility[layerKey] = visible;
-
-        // Hangi gruba aitse ilgili katmanları güncelle
-        if (layerKey === "group_trenches") {
-          // tüm açmalar
-          applyQtVisibilityToLayers();
-        } else if (layerKey.startsWith("trench_")) {
-          applyQtVisibilityToLayers();
-        } else if (layerKey === "group_finds") {
-          // tüm buluntular
-          applyQtVisibilityToLayers();
-        } else if (layerKey.startsWith("find_")) {
-          applyQtVisibilityToLayers();
-        } else {
-          // şimdilik diğer anahtarları (levels vs.) yok say
-          applyQtVisibilityToLayers();
-        }
+        applyQtVisibilityToLayers();
       }
 
-      // Qt erişsin diye global'e aç
       window.setLayerVisibilityFromQt = setLayerVisibilityFromQt;
       window._applyQtVisibilityToLayers = applyQtVisibilityToLayers;
 
       // Offline raster’lar için tek pane
       const rasterPane = map.createPane("rasterPane");
-      rasterPane.style.zIndex = 350; // OSM'in üstünde
+      rasterPane.style.zIndex = 350;
 
       const osmLayer = L.tileLayer(
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -153,7 +336,6 @@
       const overlayEntries = [];
       let firstImageBounds = null;
 
-      // URL'den zoom aralığını oku (…_z12_15/{z}/{x}/{y}.png)
       function parseZoomRangeFromUrlTemplate(urlTemplate) {
         const re = /_z(\d+)_(\d+)\/\{z\}\/\{x\}\/\{y\}\.png$/;
         const m = urlTemplate.match(re);
@@ -164,27 +346,19 @@
         };
       }
 
-      // Tile & image layer'ları oluştur (hepsi rasterPane'de)
       extraLayers.forEach((l) => {
         if (l.kind === "tile" && l.url_template) {
           const zoomInfo = parseZoomRangeFromUrlTemplate(l.url_template);
-
           const opts = {
             attribution: l.attribution || "",
             noWrap: true,
             pane: "rasterPane",
           };
-
           if (zoomInfo) {
             opts.maxNativeZoom = zoomInfo.maxZoom;
           }
-
           const layer = L.tileLayer(l.url_template, opts).addTo(map);
-          overlayEntries.push({
-            name: l.name,
-            layer,
-            kind: "tile",
-          });
+          overlayEntries.push({ name: l.name, layer, kind: "tile" });
         } else if (l.kind === "image" && l.file_url) {
           const bounds = [
             [l.min_lat, l.min_lon],
@@ -194,11 +368,7 @@
             opacity: 0.8,
             pane: "rasterPane",
           }).addTo(map);
-          overlayEntries.push({
-            name: l.name,
-            layer,
-            kind: "image",
-          });
+          overlayEntries.push({ name: l.name, layer, kind: "image" });
           if (!firstImageBounds) firstImageBounds = bounds;
         }
       });
@@ -274,7 +444,6 @@
           t.vertices.length;
 
         poly.bindPopup(popupText);
-
         trenchLayers[t.id] = poly;
       });
 
@@ -305,12 +474,11 @@
           (f.z != null ? "Z: " + f.z + " m" : "");
 
         marker.bindPopup(popupText);
-
         findLayers[f.id] = marker;
       });
 
       // ---------------------------
-      //  Lejant (Leaflet control)
+      //  Lejant
       // ---------------------------
       const legend = L.control({ position: "bottomright" });
       legend.onAdd = function () {
@@ -356,14 +524,13 @@
       legend.addTo(map);
 
       // ---------------------------
-      //  Özel Layers Panel (Drag + Opacity)
+      //  Layers Panel
       // ---------------------------
       const layerPanel = document.getElementById("layer-panel");
       const layerPanelHeader = document.getElementById("layer-panel-header");
       const layerPanelBody = document.getElementById("layer-panel-body");
       const layerListEl = document.getElementById("layer-list");
 
-      // panel aç/kapa
       layerPanelHeader.addEventListener("click", () => {
         const isCollapsed = layerPanel.classList.toggle("collapsed");
         const icon = layerPanelHeader.querySelector(".toggle-icon");
@@ -409,7 +576,6 @@
           item.appendChild(sliderWrap);
           item.appendChild(handle);
 
-          // görünürlük
           checkbox.addEventListener("change", () => {
             if (checkbox.checked) {
               entry.layer.addTo(map);
@@ -419,7 +585,6 @@
             }
           });
 
-          // opacity
           slider.addEventListener("input", () => {
             const val = parseInt(slider.value, 10) / 100;
             if (entry.layer.setOpacity) {
@@ -444,7 +609,6 @@
             checkbox.dispatchEvent(new Event("change"));
           });
 
-          // DRAG & DROP – sadece handle'dan
           handle.addEventListener("dragstart", (e) => {
             dragSrcEl = item;
             item.classList.add("dragging");
@@ -452,9 +616,7 @@
           });
 
           handle.addEventListener("dragend", () => {
-            if (dragSrcEl) {
-              dragSrcEl.classList.remove("dragging");
-            }
+            if (dragSrcEl) dragSrcEl.classList.remove("dragging");
             dragSrcEl = null;
             updateLayerOrderFromDom();
           });
@@ -485,13 +647,12 @@
         const items = Array.from(layerListEl.querySelectorAll(".layer-item"));
         const total = items.length;
 
-        // En ÜSTTE görünen item en YÜKSEK zIndex'e sahip olsun
         items.forEach((item, index) => {
           const name = item.dataset.layerName;
           const entry = overlayEntries.find((e) => e.name === name);
           if (!entry || !map.hasLayer(entry.layer)) return;
 
-          const z = 100 + (total - 1 - index); // index 0 → en büyük zIndex
+          const z = 100 + (total - 1 - index);
           if (typeof entry.layer.setZIndex === "function") {
             entry.layer.setZIndex(z);
           } else if (entry.layer._image) {
@@ -504,27 +665,206 @@
       updateLayerOrderFromDom();
 
       // ---------------------------
-      //  Filtreleme
+      //  Seviye (Z) slider ayarları
+      // ---------------------------
+      let DEPTH_MIN = null;
+      let DEPTH_MAX = null;
+
+      (function initDepthRangeFromFinds() {
+        if (zMin === null || zMax === null) return;
+        DEPTH_MIN = zMin;
+        DEPTH_MAX = zMax;
+
+        const depthMinInput = document.getElementById("depth-min");
+        const depthMaxInput = document.getElementById("depth-max");
+        const depthLabel = document.getElementById("depth-range-label");
+
+        if (depthMinInput && depthMaxInput) {
+          depthMinInput.min = DEPTH_MIN;
+          depthMinInput.max = DEPTH_MAX;
+          depthMaxInput.min = DEPTH_MIN;
+          depthMaxInput.max = DEPTH_MAX;
+
+          depthMinInput.value = DEPTH_MIN;
+          depthMaxInput.value = DEPTH_MAX;
+
+          if (depthLabel) {
+            depthLabel.textContent =
+              DEPTH_MIN.toFixed(2) + " – " + DEPTH_MAX.toFixed(2);
+          }
+
+          // ilk yüklemede barın rengini ayarla
+          updateDepthBarBackground(DEPTH_MIN, DEPTH_MAX);
+        }
+      })();
+
+      function updateDepthBarBackground(zFrom, zTo) {
+        const row = document.getElementById("depth-slider-row");
+        if (!row || DEPTH_MIN === null || DEPTH_MAX === null) return;
+
+        const total = DEPTH_MAX - DEPTH_MIN || 1;
+        const startPct = ((zFrom - DEPTH_MIN) / total) * 100;
+        const endPct = ((zTo - DEPTH_MIN) / total) * 100;
+
+        const styles = getComputedStyle(document.documentElement);
+        const bg =
+          styles.getPropertyValue("--filter-bg").trim() ||
+          "rgba(255,255,255,0.06)";
+        const accentSoft =
+          styles.getPropertyValue("--color-accent-soft").trim() ||
+          styles.getPropertyValue("--color-accent").trim() ||
+          "rgba(255,255,255,0.65)";
+
+        row.style.background = `
+          linear-gradient(
+            to right,
+            ${bg} 0%,
+            ${bg} ${startPct}%,
+            ${accentSoft} ${startPct}%,
+            ${accentSoft} ${endPct}%,
+            ${bg} ${endPct}%,
+            ${bg} 100%
+          )
+        `;
+      }
+
+      // ---------------------------
+      //  Yardımcı fonksiyonlar (tarih + seviye)
+      // ---------------------------
+      // dd.mm.yyyy / dd-mm-yyyy / dd/mm/yyyy / yyyy-mm-dd / "yyyy-mm-dd hh:mm:ss"
+      function parseDateLoose(str) {
+        if (!str) return null;
+        let s = String(str).trim();
+        if (!s) return null;
+
+        // Eğer "2025-11-29 23:58:00" gibi ise önce boşlukta kes
+        const spaceIndex = s.indexOf(" ");
+        if (spaceIndex !== -1) {
+          s = s.slice(0, spaceIndex); // sadece tarih kısmını al
+        }
+
+        // dd.mm.yyyy / dd-mm-yyyy / dd/mm/yyyy
+        let m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+        if (m) {
+          const d = parseInt(m[1], 10);
+          const mo = parseInt(m[2], 10);
+          const y = parseInt(m[3], 10);
+          const dt = new Date(y, mo - 1, d);
+          if (!isNaN(dt.getTime())) return dt;
+        }
+
+        // yyyy-mm-dd (DB ISO formatı)
+        m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) {
+          const y = parseInt(m[1], 10);
+          const mo = parseInt(m[2], 10);
+          const d = parseInt(m[3], 10);
+          const dt = new Date(y, mo - 1, d);
+          if (!isNaN(dt.getTime())) return dt;
+        }
+
+        return null;
+      }
+
+      function getDateRangeFromInputs() {
+        const fromEl = document.getElementById("date-from");
+        const toEl = document.getElementById("date-to");
+
+        let from = null;
+        let to = null;
+
+        if (fromEl && fromEl.value) {
+          from = parseDateLoose(fromEl.value);
+          if (from) from.setHours(0, 0, 0, 0);
+        }
+        if (toEl && toEl.value) {
+          to = parseDateLoose(toEl.value);
+          if (to) to.setHours(23, 59, 59, 999);
+        }
+
+        return { from, to };
+      }
+
+      function getDepthRangeFromSliders() {
+        const depthMinInput = document.getElementById("depth-min");
+        const depthMaxInput = document.getElementById("depth-max");
+        const depthLabel = document.getElementById("depth-range-label");
+
+        if (!depthMinInput || !depthMaxInput) {
+          return { zFrom: null, zTo: null };
+        }
+
+        let zFrom = parseFloat(depthMinInput.value);
+        let zTo = parseFloat(depthMaxInput.value);
+
+        if (isNaN(zFrom) || DEPTH_MIN === null) zFrom = DEPTH_MIN;
+        if (isNaN(zTo) || DEPTH_MAX === null) zTo = DEPTH_MAX;
+
+        if (zFrom > zTo) {
+          const tmp = zFrom;
+          zFrom = zTo;
+          zTo = tmp;
+        }
+
+        if (depthLabel && zFrom != null && zTo != null) {
+          depthLabel.textContent = zFrom.toFixed(2) + " – " + zTo.toFixed(2);
+        }
+
+        updateDepthBarBackground(zFrom, zTo);
+        return { zFrom, zTo };
+      }
+
+      function findMatchesDateRange(find, from, to) {
+        const raw =
+          find.date_iso ||
+          find.date ||
+          find.find_date ||
+          find.found_at || // <<< BURADA found_at'i de kullanıyoruz
+          null;
+
+        // Hiç tarih filtresi yoksa → tarihle uğraşma
+        if (!from && !to) return true;
+
+        // Bu buluntunun tarihsiz olması durumunda:
+        // → ELEME, görünmeye devam etsin
+        if (!raw) return true;
+
+        const d = parseDateLoose(raw);
+        if (!d) return true; // okunamıyorsa da eleme
+
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+
+        return true;
+      }
+
+      function findMatchesDepthRange(find, zFrom, zTo) {
+        if (zFrom == null || zTo == null) return true;
+        const z = typeof find.z === "number" ? find.z : parseFloat(find.z);
+        if (isNaN(z)) return false;
+
+        if (z < zFrom) return false;
+        if (z > zTo) return false;
+        return true;
+      }
+
+      // ---------------------------
+      //  Filtreleme (metin + tarih + seviye)
       // ---------------------------
       function applyFilter(rawQuery) {
         const q = (rawQuery || "").trim().toLowerCase();
+        const { from, to } = getDateRangeFromInputs();
+        const { zFrom, zTo } = getDepthRangeFromSliders();
+
+        const hasDateFilter = !!(from || to);
+        const hasDepthFilter = zFrom != null && zTo != null;
 
         Object.values(trenchLayers).forEach((l) => map.removeLayer(l));
         Object.values(findLayers).forEach((l) => map.removeLayer(l));
 
-        if (!q) {
+        if (!q && !hasDateFilter && !hasDepthFilter) {
           Object.values(trenchLayers).forEach((l) => l.addTo(map));
           Object.values(findLayers).forEach((l) => l.addTo(map));
-          return;
-        }
-
-        if (q.includes("buluntu")) {
-          Object.values(findLayers).forEach((l) => l.addTo(map));
-          return;
-        }
-
-        if (q.includes("açma")) {
-          Object.values(trenchLayers).forEach((l) => l.addTo(map));
           return;
         }
 
@@ -534,6 +874,9 @@
         const visibleTrenchIds = new Set();
 
         findsData.forEach((f) => {
+          if (!findMatchesDateRange(f, from, to)) return;
+          if (!findMatchesDepthRange(f, zFrom, zTo)) return;
+
           let text = "";
           if (f.code) text += " " + f.code;
           if (f.description) text += " " + f.description;
@@ -542,28 +885,35 @@
           if (f.level_name) text += " " + f.level_name;
 
           const t = text.toLowerCase();
-          const allMatch = tokens.every((tok) => t.includes(tok));
-          if (allMatch) {
+          const textOk =
+            !tokens.length || tokens.every((tok) => t.includes(tok));
+
+          if (textOk) {
             visibleFindIds.push(f.id);
-            visibleTrenchIds.add(f.trench_id);
+            if (f.trench_id != null) visibleTrenchIds.add(f.trench_id);
           }
         });
 
-        trenchesData.forEach((t) => {
+        trenchesData.forEach((tData) => {
           let text = "";
-          if (t.code) text += " " + t.code;
-          if (t.name) text += " " + t.name;
-          if (t.project) text += " " + t.project;
+          if (tData.code) text += " " + tData.code;
+          if (tData.name) text += " " + tData.name;
+          if (tData.project) text += " " + tData.project;
 
           const tt = text.toLowerCase();
-          const allMatch = tokens.every((tok) => tt.includes(tok));
-          if (allMatch) {
-            visibleTrenchIds.add(t.id);
+          const textOk =
+            !tokens.length || tokens.every((tok) => tt.includes(tok));
+
+          if (textOk) {
+            visibleTrenchIds.add(tData.id);
           }
         });
 
         if (!visibleFindIds.length && !visibleTrenchIds.size) {
-          Object.values(findLayers).forEach((l) => l.addTo(map));
+          if (!hasDateFilter && !hasDepthFilter) {
+            Object.values(findLayers).forEach((l) => l.addTo(map));
+            Object.values(trenchLayers).forEach((l) => l.addTo(map));
+          }
           return;
         }
 
@@ -577,10 +927,10 @@
           if (layer) layer.addTo(map);
         });
       }
-      if (window._applyQtVisibilityToLayers) {
-        window._applyQtVisibilityToLayers();
-      }
 
+      // ---------------------------
+      //  Event listener’lar
+      // ---------------------------
       const filterInput = document.getElementById("filter-input");
       if (filterInput) {
         filterInput.addEventListener("keyup", (e) => {
@@ -593,7 +943,48 @@
         });
       }
 
-      // Odak fonksiyonları (Qt'den)
+      const dateFromInput = document.getElementById("date-from");
+      const dateToInput = document.getElementById("date-to");
+      const clearDateBtn = document.getElementById("date-filter-clear");
+
+      if (dateFromInput) {
+        dateFromInput.addEventListener("change", () => {
+          applyFilter(filterInput ? filterInput.value : "");
+        });
+      }
+
+      if (dateToInput) {
+        dateToInput.addEventListener("focus", () => {
+          if (dateToInput.showPicker) dateToInput.showPicker();
+        });
+        dateToInput.addEventListener("change", () => {
+          applyFilter(filterInput ? filterInput.value : "");
+        });
+      }
+
+      if (clearDateBtn) {
+        clearDateBtn.addEventListener("click", () => {
+          if (dateFromInput) dateFromInput.value = "";
+          if (dateToInput) dateToInput.value = "";
+          applyFilter(filterInput ? filterInput.value : "");
+        });
+      }
+
+      const depthMinInput = document.getElementById("depth-min");
+      const depthMaxInput = document.getElementById("depth-max");
+
+      if (depthMinInput) {
+        depthMinInput.addEventListener("input", () => {
+          applyFilter(filterInput ? filterInput.value : "");
+        });
+      }
+      if (depthMaxInput) {
+        depthMaxInput.addEventListener("input", () => {
+          applyFilter(filterInput ? filterInput.value : "");
+        });
+      }
+
+      // Odak fonksiyonları
       function focusOnTrench(trenchId) {
         const layer = trenchLayers[trenchId];
         if (layer) {

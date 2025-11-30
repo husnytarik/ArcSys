@@ -1,4 +1,3 @@
-# map_data_loader.py
 from __future__ import annotations
 
 import os
@@ -128,7 +127,8 @@ def _load_finds(cur, transformer, project_id) -> List[Dict[str, Any]]:
           f.level_id,
           l.name AS level_name,
           t.code AS trench_code,
-          t.name AS trench_name
+          t.name AS trench_name,
+          f.found_at AS found_at
         FROM finds f
         JOIN trenches t ON f.trench_id = t.id
         LEFT JOIN levels l ON f.level_id = l.id
@@ -153,6 +153,7 @@ def _load_finds(cur, transformer, project_id) -> List[Dict[str, Any]]:
         level_name,
         trench_code,
         trench_name,
+        found_at,
     ) in rows:
         if xg is None or yg is None:
             continue
@@ -170,6 +171,7 @@ def _load_finds(cur, transformer, project_id) -> List[Dict[str, Any]]:
                 "z": zg,
                 "level_id": level_id,
                 "level_name": level_name,
+                "found_at": found_at,
             }
         )
 
