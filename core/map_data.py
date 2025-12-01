@@ -113,27 +113,28 @@ def load_map_data() -> MapData:
                 trenches_data.append(tdata)
                 trenches_by_id[tid] = tdata
 
-        # --- Buluntular ---
+        # --- Buluntular (found_at dahil) ---
         cur.execute(
             """
-            SELECT
-              f.id,
-              f.trench_id,
-              f.code,
-              f.description,
-              f.x_global,
-              f.y_global,
-              f.z_global,
-              f.level_id,
-              l.name AS level_name,
-              t.code AS trench_code,
-              t.name AS trench_name
-            FROM finds f
-            JOIN trenches t ON f.trench_id = t.id
-            LEFT JOIN levels l ON f.level_id = l.id
-            WHERE t.project_id = ?
-            ORDER BY f.id
-            """,
+    SELECT
+      f.id,
+      f.trench_id,
+      f.code,
+      f.description,
+      f.found_at,
+      f.x_global,
+      f.y_global,
+      f.z_global,
+      f.level_id,
+      l.name AS level_name,
+      t.code AS trench_code,
+      t.name AS trench_name
+    FROM finds f
+    JOIN trenches t ON f.trench_id = t.id
+    LEFT JOIN levels l ON f.level_id = l.id
+    WHERE t.project_id = ?
+    ORDER BY f.id
+    """,
             (project_id,),
         )
         find_rows = cur.fetchall()
@@ -143,6 +144,7 @@ def load_map_data() -> MapData:
             trench_id,
             code,
             desc,
+            found_at,  # <<< EKLENDİ
             xg,
             yg,
             zg,
@@ -153,7 +155,9 @@ def load_map_data() -> MapData:
         ) in find_rows:
             if xg is None or yg is None:
                 continue
+
             lon, lat = transformer.transform(xg, yg)
+
             finds_data.append(
                 {
                     "id": fid,
@@ -167,6 +171,7 @@ def load_map_data() -> MapData:
                     "z": zg,
                     "level_id": level_id,
                     "level_name": level_name,
+                    "found_at": found_at,  # <<< JSON’A EKLENDİ
                 }
             )
 

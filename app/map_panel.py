@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QPushButton,
     QMessageBox,
+    QSizePolicy,
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
@@ -31,10 +32,14 @@ class MapPanel(QWidget):
         super().__init__(parent)
         self.main_window = main_window
 
+        # Map panel QSS için isim
+        self.setObjectName("MapPanel")
+
         # ---------------------------
         # SOL: Katman ağacı (LayerTreeWidget)
         # ---------------------------
         self.layers_tree = LayerTreeWidget(self)
+        self.layers_tree.setObjectName("MapLayersTree")
 
         # Kök gruplar – Photoshop mantığında "grup layer" gibi
         self.trenches_root = self.layers_tree.add_layer_item(
@@ -70,34 +75,51 @@ class MapPanel(QWidget):
         # SAĞ: WebEngine (Leaflet)
         # ---------------------------
         self.map_view = QWebEngineView()
+        self.map_view.setObjectName("MapWebView")
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("MapSplitter")
         splitter.addWidget(self.layers_tree)
         splitter.addWidget(self.map_view)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 4)
 
         # ---------------------------
-        # ÜST ARAÇ ÇUBUĞU
+        # ÜST ARAÇ ÇUBUĞU (tamamen temadan boyansın)
         # ---------------------------
-        top_bar = QHBoxLayout()
+        self.toolbar = QWidget()
+        self.toolbar.setObjectName("MapToolbar")
+
+        top_bar = QHBoxLayout(self.toolbar)
+        top_bar.setContentsMargins(4, 4, 4, 4)
+        top_bar.setSpacing(6)
 
         # Offline tile indirme
-        btn_offline_tiles = QPushButton("Çevrimdışı Harita Ekle")
-        btn_offline_tiles.clicked.connect(self.on_offline_tiles_clicked)
-        top_bar.addWidget(btn_offline_tiles)
+        self.btn_offline_tiles = QPushButton("Çevrimdışı Harita Ekle")
+        self.btn_offline_tiles.setObjectName("MapToolbarButtonOffline")
+        self.btn_offline_tiles.clicked.connect(self.on_offline_tiles_clicked)
+        top_bar.addWidget(self.btn_offline_tiles)
 
         # GeoTIFF ortofoto ekleme
-        btn_import_geotiff = QPushButton("Ortofoto (GeoTIFF) Ekle")
-        btn_import_geotiff.clicked.connect(self.on_import_geotiff_clicked)
-        top_bar.addWidget(btn_import_geotiff)
+        self.btn_import_geotiff = QPushButton("Ortofoto (GeoTIFF) Ekle")
+        self.btn_import_geotiff.setObjectName("MapToolbarButtonGeotiff")
+        self.btn_import_geotiff.clicked.connect(self.on_import_geotiff_clicked)
+        top_bar.addWidget(self.btn_import_geotiff)
 
         top_bar.addStretch()
+
+        # Bu toolbar'ın yüksekliği sabit kalsın, pencere büyüyünce şişmesin
+        self.toolbar.setSizePolicy(
+            QSizePolicy.Policy.Expanding,  # yatayda esnek
+            QSizePolicy.Policy.Fixed,  # dikeyde sabit
+        )
+        self.toolbar.setMinimumHeight(32)  # istersen 28–36 arası oynayabiliriz
 
         # Ana layout
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addLayout(top_bar)
+        main_layout.setSpacing(0)
+        main_layout.addWidget(self.toolbar)
         main_layout.addWidget(splitter)
 
         self.setLayout(main_layout)
@@ -171,8 +193,6 @@ class MapPanel(QWidget):
         """
         Photoshop mantığı: Soldaki göz ikonları değişince çağrılır.
         Buradan Leaflet tarafına "şu layer grubu görünür/gizli" sinyali gönderebiliriz.
-        Şimdilik JS tarafıyla bağlantı basit tutuldu; map_template.html'e
-        window.setLayerVisibilityFromQt(...) eklediğimizde tam çalışır hale gelir.
         """
         js = (
             "if (window.setLayerVisibilityFromQt) "

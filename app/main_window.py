@@ -3,19 +3,23 @@ import os
 from typing import Optional
 import sys
 from pathlib import Path
+import time
 
 from PyQt6.QtCore import Qt, QCoreApplication
+from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
     QWidget,
     QLabel,
     QVBoxLayout,
+    QHBoxLayout,
     QTabWidget,
     QSplitter,
     QStatusBar,
     QMessageBox,
     QInputDialog,
+    QSplashScreen,
 )
 
 from core.tiles_offline import download_osm_tiles_for_active_project
@@ -51,6 +55,8 @@ class MainWindow(QMainWindow):
         # ---------------------------
         central = QWidget()
         central_layout = QVBoxLayout(central)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
         self.setCentralWidget(central)
 
         # Üst bar: aktif proje adı (varsa)
@@ -67,20 +73,32 @@ class MainWindow(QMainWindow):
             # DB yoksa / erişilemezse sessiz geç, başlık generic kalsın
             pass
 
+        # Header label
         self.header_label = QLabel(header_text)
+        self.header_label.setObjectName("HeaderLabel")
+
+        # Üst bar container
         from core.theme import build_qt_stylesheet
 
-        # ...
+        self.top_bar = QWidget()
+        self.top_bar.setObjectName("TopBar")
 
-        self.header_label.setObjectName("HeaderLabel")
+        top_bar_layout = QHBoxLayout(self.top_bar)
+        top_bar_layout.setContentsMargins(8, 4, 8, 4)
+        top_bar_layout.setSpacing(8)
+        top_bar_layout.addWidget(self.header_label)
+        top_bar_layout.addStretch()
 
         # Uygulamanın genel QSS'ini yükle
         self.setStyleSheet(build_qt_stylesheet())
 
-        central_layout.addWidget(self.header_label)
+        # Eski: central_layout.addWidget(self.header_label)
+        # Yeni: bütün bar’ı ekliyoruz
+        central_layout.addWidget(self.top_bar)
 
         # Üstte sekmeler, altta harita olacak şekilde dikey splitter
         vertical_splitter = QSplitter(Qt.Orientation.Vertical)
+        vertical_splitter.setObjectName("MainVerticalSplitter")
         central_layout.addWidget(vertical_splitter, stretch=1)
 
         # Alt harita paneli
@@ -362,10 +380,12 @@ class MainWindow(QMainWindow):
 def create_app():
     """
     run.py için yardımcı: QApplication + MainWindow oluşturur.
+    Logo ve splash ekranını burada tanımlar.
     """
     # GPU uyarılarını azaltmak için yazılımsal OpenGL
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_UseSoftwareOpenGL)
 
+    # Veritabanı yoksa kullanıcıya hata ver ve çık
     if not os.path.exists(DB_PATH):
         QMessageBox.critical(
             None,
@@ -374,8 +394,52 @@ def create_app():
         )
         return None, None
 
-        # Eğer DB yoksa Qt uygulaması oluşturulmadan çıkılır
+    # --- QApplication ---
     app = QApplication(sys.argv)
+
+    # Proje kökü: .../ArcSys
+    base_dir = Path(__file__).resolve().parent.parent
+    icon_path = base_dir / "assets" / "logo" / "logo_1024.png"
+
+    # Debug için:
+    print("Icon path:", icon_path, "exists:", icon_path.exists())
+
+    # --- Global uygulama ikonu ---
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
+    # --- Splash ekranı (küçültülmüş) ---
+    splash = None
+    if icon_path.exists():
+        pixmap = QPixmap(str(icon_path))
+        if not pixmap.isNull():
+            # Maksimum splash boyutu (px)
+            MAX_SPLASH_SIZE = 320
+
+            # Oran korunarak küçült
+            pixmap = pixmap.scaled(
+                MAX_SPLASH_SIZE,
+                MAX_SPLASH_SIZE,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+
+            splash = QSplashScreen(pixmap)
+            splash.show()
+            app.processEvents()
+
+    # --- Ana pencere ---
     window = MainWindow()
+
+    # Pencere özel ikonu (taskbar + sol üst köşe)
+    if icon_path.exists():
+        window.setWindowIcon(QIcon(str(icon_path)))
+
     window.show()
+
+    # Splash'i pencere açıldıktan sonra kapat
+    if splash is not None:
+        time.sleep(0.5)
+        splash.finish(window)
+
     return app, window

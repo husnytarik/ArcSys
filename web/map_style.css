@@ -12,24 +12,46 @@ body {
   inset: 0; /* top:0; right:0; bottom:0; left:0 kısaltması */
 }
 
-/* === FİLTRE PANELİ GENEL === */
+/* =========================================
+   FİLTRE BAR (ÜSTTE TEK SATIR)
+   ========================================= */
 
 #filter-container {
   position: absolute;
   top: 10px;
-  left: 60px;
+  left: 10px;
+  right: 10px;
   z-index: 1000;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
   border-radius: var(--panel-radius);
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   box-shadow: 0 10px 24px var(--panel-shadow, rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  flex-wrap: nowrap;
+  overflow: visible;
 }
 
-/* Metin filtresi */
+.filter-group,
+.date-filter-group,
+#depth-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+}
+
+.filter-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Metin arama */
 
 #filter-input {
   padding: 4px 8px;
@@ -38,7 +60,8 @@ body {
   border: 1px solid var(--filter-border);
   background: var(--filter-bg);
   color: var(--color-text);
-  min-width: 230px;
+  min-width: 180px;
+  max-width: 260px;
   outline: none;
 }
 
@@ -53,14 +76,7 @@ body {
 
 /* Tarih aralığı */
 
-.date-filter-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-#date-from,
-#date-to {
+.date-filter-group input {
   padding: 3px 6px;
   font-size: 11px;
   border-radius: var(--panel-radius);
@@ -68,16 +84,14 @@ body {
   background: var(--filter-bg);
   color: var(--color-text);
   outline: none;
-  min-width: 110px;
+  width: 110px;
 }
 
-#date-from::placeholder,
-#date-to::placeholder {
+.date-filter-group input::placeholder {
   color: var(--filter-placeholder);
 }
 
-#date-from:focus,
-#date-to:focus {
+.date-filter-group input:focus {
   border-color: var(--color-accent, #ffffff);
 }
 
@@ -104,45 +118,26 @@ body {
   background: var(--panel-border);
 }
 
-/* === SEVİYE (Z) SLIDER === */
+/* Seviye (Z) slider */
 
 #depth-filter-group {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 2px;
-}
-
-#depth-label-row {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 11px;
-  color: var(--color-text-muted);
+  gap: 6px;
+  min-width: 260px;
 }
-
-.depth-title {
-  font-weight: 600;
-}
-
-#depth-range-label {
-  font-size: 11px;
-}
-
-/* Barın kendisi (dış çerçeve + arka plan) */
 
 #depth-slider-row {
   position: relative;
-  height: 18px;
+  height: 10px;
+  flex: 1;
   display: flex;
   align-items: center;
-  padding: 4px 0;
+  padding: 3px 0;
   border-radius: 999px;
-  background: var(--filter-bg); /* temadan */
+  background: var(--filter-bg);
   box-shadow: inset 0 0 0 1px var(--filter-border);
 }
-
-/* İki range’i üst üste bindiriyoruz */
 
 #depth-min,
 #depth-max {
@@ -150,11 +145,9 @@ body {
   appearance: none;
   width: 100%;
   position: absolute;
-  pointer-events: none; /* sadece thumb tıklanabilir */
+  pointer-events: none;
   background: transparent;
 }
-
-/* Track'leri görünmez, renk JS ile parent'tan geliyor */
 
 #depth-min::-webkit-slider-runnable-track,
 #depth-max::-webkit-slider-runnable-track {
@@ -169,8 +162,6 @@ body {
   background: transparent;
 }
 
-/* Thumb – temadan gelen nötr görünüm */
-
 #depth-min::-webkit-slider-thumb,
 #depth-max::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -178,13 +169,14 @@ body {
   height: 11px;
   width: 11px;
   border-radius: 999px;
-  background: var(--panel-bg); /* temadan */
+  background: var(--panel-bg);
   border: 1px solid var(--color-accent, var(--panel-border));
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   pointer-events: all;
   margin-top: -4px;
 }
+
 #depth-min::-moz-range-thumb,
 #depth-max::-moz-range-thumb {
   height: 11px;
@@ -196,110 +188,149 @@ body {
   cursor: pointer;
   pointer-events: all;
 }
-
-/* ---------------------------
-   Leaflet genel kontrol stili
----------------------------- */
-
-.leaflet-control {
-  font-family: var(--font-main);
+.depth-title,
+#depth-range-label {
   font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
-/* Zoom butonları */
-.leaflet-control-zoom.leaflet-bar {
+/* Sağ taraf: zoom + katmanlar aynı hizada */
+
+#filter-right-group {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative; /* dropdown konumu için referans */
+}
+
+/* Zoom kontrolleri (tema ile uyumlu) */
+
+#zoom-controls {
+  display: inline-flex;
+  align-items: center;
   border-radius: var(--panel-radius);
-  overflow: hidden;
-  background: var(--panel-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--panel-border);
-  box-shadow: var(--panel-shadow);
+  background: var(--panel-bg);
+  overflow: hidden;
 }
 
-.leaflet-bar a,
-.leaflet-bar a:hover {
-  background: transparent;
+#zoom-controls button {
   border: none;
-  color: var(--zoom-text-color);
-}
-
-.leaflet-bar a {
-  width: 28px;
-  height: 28px;
-  line-height: 28px;
-  font-size: 16px;
-}
-
-.leaflet-bar a:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-/* ---------------------------
-   Özel Layers Paneli (sağ üst)
----------------------------- */
-#layer-panel {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1100;
-  max-width: 260px;
+  background: transparent;
   color: var(--color-text);
-  background: var(--panel-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-radius: var(--panel-radius);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--panel-shadow);
-  font-size: 11px;
-  overflow: hidden;
-}
-
-#layer-panel.collapsed #layer-panel-body {
-  display: none;
-}
-
-#layer-panel-header {
-  padding: 6px 8px;
+  width: 28px;
+  height: 24px;
+  font-size: 14px;
   cursor: pointer;
+}
+
+#zoom-controls button:hover {
+  background: var(--layer-item-hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+#zoom-level-label {
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--zoom-text-color, var(--color-text-muted));
+  min-width: 30px;
+  text-align: center;
+}
+
+/* Ekran daraldığında bar taşmasın */
+
+@media (max-width: 900px) {
+  #filter-input {
+    flex: 1;
+    min-width: 140px;
+    max-width: none;
+  }
+
+  #depth-filter-group {
+    min-width: 180px;
+  }
+
+  #filter-right-group {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* =========================================
+   LAYER PANEL (ÜST BAR İÇİNDE DROPDOWN)
+   ========================================= */
+
+#layer-panel {
+  position: relative; /* dropdown için referans */
+  display: inline-flex;
+  flex-direction: column;
+  width: auto;
+  max-height: none;
+  background: transparent; /* asıl kart body’de */
+  border: none;
+  box-shadow: none;
+  overflow: visible; /* body dışarı taşabilsin */
+  z-index: 900;
+}
+
+/* Sadece header bar içinde küçük bir chip gibi dursun */
+#layer-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   color: var(--color-text);
-  border-bottom: 1px solid var(--panel-border);
 }
 
-#layer-panel-header span.title {
-  font-size: 11px;
+#layer-panel-header .title {
+  white-space: nowrap;
 }
 
-#layer-panel-header span.toggle-icon {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
+/* Katman listesi, header’ın ALTINA açılan dropdown kartı gibi */
 #layer-panel-body {
-  padding: 4px 6px 6px 6px;
-  max-height: 260px;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+
+  width: 260px;
+  max-height: 40vh;
+  padding: 4px 6px 6px;
+
+  background: var(--panel-bg);
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 10px 24px var(--panel-shadow, rgba(0, 0, 0, 0.6));
+
   overflow-y: auto;
+  z-index: 1200;
+}
+
+/* Kapalıyken dropdown tamamen gizlensin */
+#layer-panel.collapsed #layer-panel-body {
+  display: none;
 }
 
 .layer-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 4px;
-  border-radius: var(--panel-radius);
-  margin-bottom: 2px;
-  background: var(--layer-item-bg);
+  gap: 6px;
+  padding: 4px 4px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--color-text);
 }
 
-.layer-item.dragging {
-  opacity: 0.6;
-  background: var(--layer-item-drag-bg);
+.layer-item:hover {
+  background: var(--panel-bg-alt, rgba(255, 255, 255, 0.03));
 }
 
 .layer-checkbox {
@@ -308,9 +339,6 @@ body {
 
 .layer-label {
   flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   cursor: pointer;
 }
 
@@ -326,54 +354,47 @@ body {
   cursor: grab;
   font-size: 12px;
   opacity: 0.6;
-  user-select: none;
 }
 
-.layer-item:hover {
-  background: var(--layer-item-hover-bg);
+.layer-item.dragging {
+  opacity: 0.5;
 }
 
-/* ---------------------------
-   Lejant (alt sağ) - açılır/kapanır
----------------------------- */
+/* Leaflet'in default zoom kontrolünü gizle */
+.leaflet-control-zoom {
+  display: none !important;
+}
+
+/* =========================================
+   LEJANT
+   ========================================= */
+
 .info.legend {
-  padding: 0;
-  border-radius: var(--panel-radius);
   background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .legend-card {
-  padding: 0;
-  border-radius: var(--panel-radius);
   background: var(--panel-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  border-radius: var(--panel-radius);
   border: 1px solid var(--panel-border);
-  box-shadow: var(--panel-shadow);
-  max-width: 220px;
+  box-shadow: 0 8px 18px var(--panel-shadow, rgba(0, 0, 0, 0.5));
+  overflow: hidden;
+  font-size: 11px;
 }
 
 .legend-header {
-  padding: 6px 8px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  background: var(--panel-bg);
-  color: var(--legend-header-text);
-  border-bottom: 1px solid var(--panel-border);
-}
-
-.legend-header .toggle-icon {
-  font-size: 12px;
-  opacity: 0.8;
+  color: var(--color-text);
 }
 
 .legend-body {
-  padding: 4px 8px 6px 8px;
+  padding: 4px 8px 6px;
 }
 
 .legend-card.collapsed .legend-body {
@@ -383,27 +404,24 @@ body {
 .legend-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 3px;
-  font-size: 11px;
-  color: var(--legend-text);
+  gap: 4px;
+  margin-bottom: 2px;
 }
 
 .legend-swatch {
   width: 12px;
   height: 12px;
-  border-radius: var(--panel-radius);
+  border-radius: 2px;
 }
 
 .legend-swatch.round {
-  border-radius: var(--panel-radius);
+  border-radius: 999px;
 }
 
 .legend-scale-title {
   font-size: 10px;
-  margin-top: 6px;
-  margin-bottom: 2px;
-  color: var(--legend-scale-title);
+  color: var(--color-text-muted);
+  margin-top: 4px;
 }
 
 .legend-scale-bar {
@@ -417,5 +435,5 @@ body {
 .legend-z-text {
   margin-top: 4px;
   font-size: 10px;
-  color: var(--legend-z-text);
+  color: var(--legend-z-text, var(--color-text-muted));
 }

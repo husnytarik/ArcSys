@@ -1,3 +1,4 @@
+# map_data_loader.py
 from __future__ import annotations
 
 import os
@@ -17,18 +18,17 @@ def _get_project_and_transformer():
     con = get_connection()
     cur = con.cursor()
 
-    project_id = get_active_project_id()
-    if not project_id:
+    project_id = get_active_project_id(cur)
+    if project_id is None:
         con.close()
         raise RuntimeError("Aktif proje bulunamadı.")
 
+    # Proje EPSG kodu
     cur.execute(
         """
-        SELECT p.id, p.name, cs.epsg_code
-        FROM projects p
-        LEFT JOIN coordinate_systems cs
-          ON p.coordinate_system_id = cs.id
-        WHERE p.id = ?
+        SELECT id, name, epsg_code
+        FROM projects
+        WHERE id = ?
         """,
         (project_id,),
     )
@@ -46,74 +46,67 @@ def _get_project_and_transformer():
     src_crs = f"EPSG:{epsg_code}"
     transformer = Transformer.from_crs(src_crs, "EPSG:4326", always_xy=True)
 
-    return con, transformer, project_id, project_name
+    return con, cur, project_id, project_name, transformer
 
 
-def _load_trenches(
-    cur, transformer, project_id
-) -> Tuple[List[Dict[str, Any]], Dict[int, Dict[str, Any]]]:
+def _load_trenches(cur, transformer, project_id) -> List[Dict[str, Any]]:
     """
-    Açmaları (trenches) ve köşe noktalarını yükler.
+    Açmaları (trenches) ve köşe koordinatlarını yükler.
     """
+    # Önce temel açma bilgileri
     cur.execute(
         """
-        SELECT t.id, t.code, t.name, p.name
-        FROM trenches t
-        JOIN projects p ON t.project_id = p.id
-        WHERE t.project_id = ?
-        ORDER BY t.id
+        SELECT id, project_id, code, name, description
+        FROM trenches
+        WHERE project_id = ?
+        ORDER BY id
         """,
         (project_id,),
     )
-    rows = cur.fetchall()
+    trench_rows = cur.fetchall()
+
+    # Köşeler
+    cur.execute(
+        """
+        SELECT id, trench_id, corner_index,
+               x_global, y_global
+        FROM trench_vertices
+        WHERE trench_id IN (
+          SELECT id FROM trenches WHERE project_id = ?
+        )
+        ORDER BY trench_id, corner_index
+        """,
+        (project_id,),
+    )
+    vertex_rows = cur.fetchall()
+
+    vertices_by_trench: Dict[int, List[Tuple[float, float]]] = {}
+    for vid, trench_id, corner_idx, xg, yg in vertex_rows:
+        if xg is None or yg is None:
+            continue
+        lon, lat = transformer.transform(xg, yg)
+        vertices_by_trench.setdefault(trench_id, []).append((lat, lon))
 
     trenches: List[Dict[str, Any]] = []
-    trenches_by_id: Dict[int, Dict[str, Any]] = {}
-
-    for tid, tcode, tname, pname in rows:
-        cur.execute(
-            """
-            SELECT order_index, x_global, y_global, z_global
-            FROM trench_vertices
-            WHERE trench_id = ?
-            ORDER BY order_index
-            """,
-            (tid,),
-        )
-        verts = cur.fetchall()
-        vertices_latlon: List[Dict[str, Any]] = []
-
-        for order_idx, xg, yg, zg in verts:
-            if xg is None or yg is None:
-                continue
-            lon, lat = transformer.transform(xg, yg)
-            vertices_latlon.append(
-                {
-                    "order": order_idx,
-                    "lat": lat,
-                    "lon": lon,
-                    "z": zg,
-                }
-            )
-
-        if vertices_latlon:
-            tdata = {
+    for tid, proj_id, code, name, desc in trench_rows:
+        verts = vertices_by_trench.get(tid, [])
+        trenches.append(
+            {
                 "id": tid,
-                "code": tcode,
-                "name": tname,
-                "project": pname,
-                "vertices": vertices_latlon,
+                "project_id": proj_id,
+                "code": code,
+                "name": name,
+                "description": desc,
+                "vertices": [{"lat": lat, "lon": lon} for (lat, lon) in verts],
+                "project": "",
             }
-            trenches.append(tdata)
-            trenches_by_id[tid] = tdata
+        )
 
-    return trenches, trenches_by_id
+    return trenches
 
 
 def _load_finds(cur, transformer, project_id) -> List[Dict[str, Any]]:
-    """
-    Buluntuları (finds) yükler.
-    """
+    """Buluntuları (finds) yükler — found_at dahil."""
     cur.execute(
         """
         SELECT
@@ -121,14 +114,14 @@ def _load_finds(cur, transformer, project_id) -> List[Dict[str, Any]]:
           f.trench_id,
           f.code,
           f.description,
+          f.found_at,
           f.x_global,
           f.y_global,
           f.z_global,
           f.level_id,
           l.name AS level_name,
           t.code AS trench_code,
-          t.name AS trench_name,
-          f.found_at AS found_at
+          t.name AS trench_name
         FROM finds f
         JOIN trenches t ON f.trench_id = t.id
         LEFT JOIN levels l ON f.level_id = l.id
@@ -146,6 +139,7 @@ def _load_finds(cur, transformer, project_id) -> List[Dict[str, Any]]:
         trench_id,
         code,
         desc,
+        found_at,
         xg,
         yg,
         zg,
@@ -153,7 +147,6 @@ def _load_finds(cur, transformer, project_id) -> List[Dict[str, Any]]:
         level_name,
         trench_code,
         trench_name,
-        found_at,
     ) in rows:
         if xg is None or yg is None:
             continue
@@ -198,127 +191,75 @@ def _load_map_layers(cur, transformer, project_id) -> List[Dict[str, Any]]:
 
     layers: List[Dict[str, Any]] = []
 
-    for lid, lname, ltype, url_tmpl, file_path, attr in rows:
-        ltype = (ltype or "").lower()
-        attr = attr or ""
-
-        # URL Tabanlı Tile Layer
-        if url_tmpl and url_tmpl.strip():
+    for lid, name, layer_type, url_template, file_path, attribution in rows:
+        if layer_type == "tile":
+            if not url_template:
+                continue
             layers.append(
                 {
                     "id": lid,
-                    "name": lname,
+                    "name": name,
                     "kind": "tile",
-                    "url_template": url_tmpl,
-                    "file_url": "",
-                    "attribution": attr,
+                    "url_template": url_template,
+                    "attribution": attribution,
                 }
             )
-            continue
-
-        # Raster Image Layer (PNG/JPG + worldfile)
-        if ltype == "image" and file_path:
-            abs_image = os.path.abspath(os.path.join(base_dir, file_path))
-            if not os.path.exists(abs_image):
+        elif layer_type == "image":
+            if not file_path:
+                continue
+            abs_path = Path(base_dir) / file_path
+            if not abs_path.exists():
                 continue
 
-            try:
-                img = Image.open(abs_image)
-                width, height = img.size
-                img.close()
-            except Exception:
+            # GeoTIFF ya da worldfile’lı raster varsayımı;
+            # burada sadece önceden üretilmiş PNG/JPG’yi kullanıyoruz.
+            # Örneğin: rasters/.../image.png
+            rel = os.path.relpath(abs_path, base_dir).replace("\\", "/")
+            file_url = f"file:///{rel}"
+
+            # bounds bilgisi map_layers’ta tutuluyorsa çek:
+            cur.execute(
+                """
+                SELECT min_lat, min_lon, max_lat, max_lon
+                FROM map_layer_bounds
+                WHERE layer_id = ?
+                """,
+                (lid,),
+            )
+            b = cur.fetchone()
+            if not b:
                 continue
-
-            root, ext = os.path.splitext(abs_image)
-            ext_low = ext.lower()
-            if ext_low == ".png":
-                wf_path = root + ".pgw"
-            elif ext_low in (".jpg", ".jpeg"):
-                wf_path = root + ".jgw"
-            else:
-                wf_path = root + ".pgw"
-
-            if not os.path.exists(wf_path):
-                continue
-
-            try:
-                with open(wf_path, "r", encoding="utf-8") as wf:
-                    vals = [float(line.strip()) for line in wf if line.strip()]
-                if len(vals) < 6:
-                    continue
-                a, rot1, rot2, e, x_center_ul, y_center_ul = vals[:6]
-            except Exception:
-                continue
-
-            x_min = x_center_ul - a / 2.0
-            y_max = y_center_ul - e / 2.0
-            x_max = x_min + width * a
-            y_min = y_max + height * e
-
-            corners_xy = [
-                (x_min, y_min),
-                (x_min, y_max),
-                (x_max, y_min),
-                (x_max, y_max),
-            ]
-            lons = []
-            lats = []
-            for x, y in corners_xy:
-                lon, lat = transformer.transform(x, y)
-                lons.append(lon)
-                lats.append(lat)
-
-            min_lon = min(lons)
-            max_lon = max(lons)
-            min_lat = min(lats)
-            max_lat = max(lats)
-
-            # base_dir’e göre relatif path: rasters/.../image.png
-            rel_image_path = os.path.relpath(abs_image, base_dir).replace("\\", "/")
+            min_lat, min_lon, max_lat, max_lon = b
 
             layers.append(
                 {
                     "id": lid,
-                    "name": lname,
+                    "name": name,
                     "kind": "image",
-                    "url_template": "",
-                    "file_url": rel_image_path,
+                    "file_url": file_url,
                     "min_lat": min_lat,
                     "min_lon": min_lon,
                     "max_lat": max_lat,
                     "max_lon": max_lon,
-                    "attribution": attr,
+                    "attribution": attribution,
                 }
             )
 
     return layers
 
 
-def load_map_data_for_project():
+def load_all_map_data():
     """
-    Harita için gerekli tüm verileri tek seferde döndürür.
-
-    Returns:
-        (
-          trenches_data: List[dict],
-          finds_data: List[dict],
-          layers_data: List[dict],
-          center_lat: float,
-          center_lon: float,
-        )
+    Harita için gerekli tüm verileri (açmalar, buluntular, katmanlar) yükler.
     """
-    trenches_data: List[Dict[str, Any]] = []
-    finds_data: List[Dict[str, Any]] = []
-    layers_data: List[Dict[str, Any]] = []
-    center_lat = 37.0
-    center_lon = 32.0
-
     con = None
-    try:
-        con, transformer, project_id, project_name = _get_project_and_transformer()
-        cur = con.cursor()
+    center_lat = 0.0
+    center_lon = 0.0
 
-        trenches_data, trenches_by_id = _load_trenches(cur, transformer, project_id)
+    try:
+        con, cur, project_id, project_name, transformer = _get_project_and_transformer()
+
+        trenches_data = _load_trenches(cur, transformer, project_id)
         finds_data = _load_finds(cur, transformer, project_id)
         layers_data = _load_map_layers(cur, transformer, project_id)
 

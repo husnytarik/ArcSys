@@ -17,27 +17,20 @@ class LoadingBarWidget(QWidget):
         # Üstteki yazı
         self.label = QLabel("Hazırlanıyor...")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Renk / font temadan gelsin diye sadece boyut veriyoruz
         self.label.setStyleSheet("font-size: 11px;")
 
         # Alttaki progress bar
         self.progress = QProgressBar()
+        self.progress.setObjectName("LoadingProgressBar")  # <-- TEMA BURAYA UYGULANACAK
         self.progress.setMinimum(0)
         self.progress.setMaximum(100)
         self.progress.setValue(0)
         self.progress.setTextVisible(False)
         self.progress.setFixedHeight(6)
-        self.progress.setStyleSheet(
-            """
-            QProgressBar {
-                border: 1px solid #555;
-                border-radius: 3px;
-                background-color: #303030;
-            }
-            QProgressBar::chunk {
-                background-color: #57a6ff;
-            }
-        """
-        )
+
+        # Buradaki sabit renkleri kaldırdık, her şey theme.build_qt_stylesheet'ten gelsin
+        # self.progress.setStyleSheet(...)
 
         layout.addWidget(self.label)
         layout.addWidget(self.progress)

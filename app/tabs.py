@@ -41,6 +41,7 @@ class ProjectDetailsTab(QWidget):
         super().__init__(parent)
 
         self.project_combo = QComboBox()
+        self.project_combo.setObjectName("ProjectCombo")
         self.project_info = QTextEdit()
         self.project_info.setReadOnly(True)
         self.project_info.setPlaceholderText(
