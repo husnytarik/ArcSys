@@ -627,9 +627,7 @@ class ReportsTab(QWidget):
         self.report_list = QListWidget()
         self.report_view = QTextEdit()
         self.report_view.setReadOnly(True)
-        self.report_view.setPlaceholderText(
-            "Rapor içeriği (ileride DB'den yüklenecek)..."
-        )
+        self.report_view.setPlaceholderText("Rapor içeriği...")
 
         splitter_main = QSplitter(Qt.Orientation.Horizontal)
         splitter_main.addWidget(self.group_list)

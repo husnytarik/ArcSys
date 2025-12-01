@@ -33,7 +33,7 @@ THEME = {
     "header_border": "#262A32",
     # ANA PANELLER (sol panel, alt panel vs.)
     # İçerikten bir ton açık, header’dan bir tık koyu → doğal ayrım
-    "panel_bg": "#171920",
+    "panel_bg": "#252730",
     "panel_border": "#2A2E38",
     "panel_shadow": "0 4px 16px rgba(0, 0, 0, 0.55)",
     "panel_radius": 8,
@@ -53,12 +53,24 @@ THEME = {
     "toolbar_border": "#292E38",
     "toolbar_text": "#E6E7EC",
     # ======================
+    # MAP TOOLBAR (ÜSTTEKİ ÇUBUK)
+    # ======================
+    "map_toolbar_bg": "#1C1F24",
+    "map_toolbar_border": "#292D37",
+    "map_toolbar_text": "#E5E5E7",
+    "map_toolbar_button_bg": "#23262F",
+    "map_toolbar_button_text": "#E5E5E7",
+    "map_toolbar_button_border": "#323542",
+    "map_toolbar_button_hover_bg": "#2E3240",
+    "map_toolbar_button_pressed_bg": "#252835",
+    # ======================
     # FILTER BAR (HARİTA ÜSTÜ)
     # ======================
     # Panel ile content arasında bir ton → bar net seçiliyor
     "filter_bg": "#1E222A",
     "filter_border": "#303541",
     "filter_placeholder": "rgba(230, 231, 236, 0.55)",
+    "color_text_muted": "#A0A4AE",
     # ======================
     # LAYERS (HARİTA KATMAN LİSTESİ)
     # ======================
@@ -92,13 +104,30 @@ THEME = {
     "tab_text": "#DADBE3",
     "tab_selected_bg": "#252A35",
     "tab_selected_text": "#FFFFFF",
+    "tab_page_bg": "#14161B",
+    "tab_page_border": "#292D37",
+    # Sol listeler (Açmalar listesi, Buluntular listesi, rapor listeleri)
+    "tab_list_bg": "#181A21",
+    "tab_list_border": "#292D37",
+    "tab_list_text": "#E5E5F1",
+    "tab_list_selected_bg": "#303545",
+    "tab_list_selected_text": "#FFFFFF",
+    "tab_list_hover_bg": "#252834",
+    # Sağ detay alanları (QTextEdit vs.)
+    "tab_detail_bg": "#181A21",
+    "tab_detail_border": "#292D37",
+    "tab_detail_text": "#E5E5F1",
+    "tab_detail_placeholder": "#7E828E",
+    # Splitter (iki panel arasındaki tutacak çizgi)
+    "tab_splitter_handle_bg": "#20232C",
+    "tab_splitter_handle_hover_bg": "#2C313D",
     # ======================
     # STATUS / PROGRESS
     # ======================
     "status_bg": "#171921",
     "status_text": "#D6D7E0",
     "progress_bg": "#252A35",
-    "progress_chunk": "#4E86D2",
+    "progress_chunk": "#91E4CB",
     # ======================
     # ACCENT & ÖZEL
     # ======================
@@ -124,32 +153,24 @@ def build_qt_stylesheet() -> str:
     """
     t = THEME
     return f"""
-    /* =======================
-       GLOBAL
-       ======================= */
     QWidget {{
         font-family: {t['font_main']};
         color: {t['color_text']};
         background-color: {t['color_bg']};
-        font-size: {t['font_size_normal']}px;
     }}
 
-    /* Ana header label'i */
     QLabel#HeaderLabel {{
         background-color: {t['header_bg']};
         color: {t['header_text']};
         padding: 8px 12px;
         font-size: {t['header_font_size']}px;
         font-weight: bold;
-        border-bottom: 1px solid {t['header_border']};
     }}
 
-    /* =======================
-       TABS
-       ======================= */
+    /* TAB ÇUBUĞU VE PANE (üstte sekmeler + altındaki alan) */
     QTabWidget::pane {{
-        border: 1px solid {t['panel_border']};
-        background: {t['tab_bg']};
+        border: 1px solid {t['tab_page_border']};
+        background: {t['tab_page_bg']};
     }}
 
     QTabBar::tab {{
@@ -165,10 +186,33 @@ def build_qt_stylesheet() -> str:
         background: {t['tab_selected_bg']};
         color: {t['tab_selected_text']};
     }}
+    
+        /* ==========================
+       MAP TOOLBAR (ÜST ÇUBUK)
+       ========================== */
 
-    /* =======================
-       STATUS BAR & PROGRESS
-       ======================= */
+    QWidget#MapToolbar {{
+        background-color: {t['map_toolbar_bg']};
+        border-bottom: 1px solid {t['map_toolbar_border']};
+    }}
+
+    QWidget#MapToolbar QPushButton {{
+        background-color: {t['map_toolbar_button_bg']};
+        color: {t['map_toolbar_button_text']};
+        border: 1px solid {t['map_toolbar_button_border']};
+        padding: 4px 10px;
+        font-size: {t['font_size_normal']}px;
+    }}
+
+    QWidget#MapToolbar QPushButton:hover {{
+        background-color: {t['map_toolbar_button_hover_bg']};
+    }}
+
+    QWidget#MapToolbar QPushButton:pressed {{
+        background-color: {t['map_toolbar_button_pressed_bg']};
+    }}
+
+
     QStatusBar {{
         background: {t['status_bg']};
         color: {t['status_text']};
@@ -180,7 +224,7 @@ def build_qt_stylesheet() -> str:
         border: 1px solid {t['panel_border']};
         border-radius: 4px;
         text-align: center;
-        min-height: 12px;
+        min-height: 11px;
         font-size: 10px;
     }}
 
@@ -188,182 +232,95 @@ def build_qt_stylesheet() -> str:
         background-color: {t['progress_chunk']};
     }}
 
-    /* =======================
-       GENEL BUTONLAR
-       ======================= */
-    QPushButton {{
-        background-color: {t['button_bg']};
-        color: {t['button_text']};
-        border: 1px solid {t['button_border']};
-        border-radius: 4px;
-        padding: 4px 10px;
-    }}
-
-    QPushButton:hover {{
-        background-color: {t['button_bg_hover']};
-    }}
-
-    QPushButton:pressed {{
-        background-color: {t['button_bg_pressed']};
-    }}
-
-    QPushButton:disabled {{
-        background-color: {t['panel_bg']};
-        color: {t['color_text_muted']};
-        border-color: {t['panel_border']};
-    }}
-
-    /* Map toolbar özel – istersen ayrı renklendirebilirsin */
-    QWidget#MapToolbar {{
-        background-color: {t['toolbar_bg']};
-        border-bottom: 1px solid {t['toolbar_border']};
-    }}
-
-    QPushButton#MapToolbarButtonOffline,
-    QPushButton#MapToolbarButtonGeotiff {{
-        font-size: {t['font_size_small']}px;
-    }}
-
-    /* =======================
-       MAP PANEL & LAYER TREE
-       ======================= */
-    QWidget#MapPanel {{
-        background-color: {t['content_bg']};
-    }}
-
-    QTreeWidget#MapLayersTree {{
+    /* Sol katman paneli (QTreeWidget) */
+    QTreeWidget {{
         background: {t['tree_bg']};
         border: 1px solid {t['tree_border']};
         color: {t['tree_text']};
-        font-size: {t['font_size_normal']}px;
+        font-size: 11px;
     }}
 
-    QTreeWidget#MapLayersTree::item {{
-        background: {t['tree_item_bg']};
-        padding: 6px 8px;
+    QTreeWidget::item {{
+        padding: 4px 6px;
         color: {t['tree_text']};
         border-bottom: 1px solid {t['tree_item_border']};
     }}
- 
-    QTreeWidget#MapLayersTree::item:selected {{
-        background: {t['tree_selected_bg']};  /* ← Seçili BG */
+
+    QTreeWidget::item:selected {{
+        background: {t['tree_selected_bg']};
         color: {t['tree_text']};
     }}
 
-    QTreeWidget#MapLayersTree::item:hover {{
-        background: {t['tree_item_hover_bg']};  /* ← Hover BG */
+    QTreeWidget::item:hover {{
+        background: rgba(0, 0, 0, 0.04);
     }}
 
-    /* Web harita görünümü */
-    QWebEngineView#MapWebView {{
-        background: {t['content_bg']};
-        border-left: 1px solid {t['panel_border']};
+    /* ==========================
+       TAB İÇERİKLERİ (LISTE + DETAY)
+       ========================== */
+
+    /* QSplitter: sekmeler içindeki bölücü */
+    QSplitter {{
+        background-color: {t['tab_page_bg']};
     }}
 
-    /* Splitter */
-    QSplitter#MapSplitter::handle {{
-        background: {t['splitter_handle']};
-        width: 5px;
-        margin: 0;
+    QSplitter::handle {{
+        background-color: {t['tab_splitter_handle_bg']};
     }}
 
-    QSplitter#MapSplitter::handle:hover {{
-        background: {t['button_bg_hover']};
+    QSplitter::handle:hover {{
+        background-color: {t['tab_splitter_handle_hover_bg']};
     }}
 
-    /* =======================
-       SCROLLBARS
-       ======================= */
-    QScrollBar:vertical {{
-        background: {t['scrollbar_bg']};
-        width: 12px;
-        margin: 0;
-    }}
-
-    QScrollBar::handle:vertical {{
-        background: {t['scrollbar_handle']};
-        min-height: 20px;
-        border-radius: 6px;
-    }}
-
-    QScrollBar::handle:vertical:hover {{
-        background: {t['scrollbar_handle_hover']};
-    }}
-
-    QScrollBar:horizontal {{
-        background: {t['scrollbar_bg']};
-        height: 12px;
-        margin: 0;
-    }}
-
-    QScrollBar::handle:horizontal {{
-        background: {t['scrollbar_handle']};
-        min-width: 20px;
-        border-radius: 6px;
-    }}
-
-    QScrollBar::handle:horizontal:hover {{
-        background: {t['scrollbar_handle_hover']};
-    }}
-
-    QScrollBar::add-line, QScrollBar::sub-line {{
-        background: transparent;
-        border: none;
-        width: 0;
-        height: 0;
-    }}
-        /* =======================
-       ÜST BAR (HEADER BÖLÜMÜ)
-       ======================= */
-    QWidget#TopBar {{
-        background-color: {t['tab_bg']};                  /* Tab zeminine uyumlu */
-        border-bottom: 1px solid {t['tree_item_border']}; /* Aşağı ince çizgi */
-    }}
-
-    QLabel#HeaderLabel {{
-        background: transparent;                          /* Ayrı bir kutu gibi durmasın */
-        color: {t['header_text']};
-        font-size: {t['header_font_size']}px;
-        font-weight: bold;
-    }}
-    /* Proje combobox – çukur değil, düz kart gibi */
-    QComboBox#ProjectCombo {{
-        background-color: {t['tab_bg']};
-        color: {t['color_text']};
-        border: 1px solid {t['tree_item_border']};
-        border-radius: 4px;
-        padding: 2px 8px;
-    }}
-
-    QComboBox#ProjectCombo::drop-down {{
-        subcontrol-origin: padding;
-        subcontrol-position: right center;
-        width: 18px;
-        border-left: 1px solid {t['tree_item_border']};
-        background: {t['tab_bg']};
-    }}
-
-    QComboBox#ProjectCombo::down-arrow {{
-        image: none;  /* default ikon yok, sadece küçük alan */
-        width: 0;
-        height: 0;
-        margin-right: 0;
-    }}
-
-    QComboBox#ProjectCombo:on,
-    QComboBox#ProjectCombo:focus {{
-        border: 1px solid {t['color_accent']};
+    /* Sol listeler (Açmalar listesi, Buluntular listesi, rapor grupları) */
+    QListWidget {{
+        background: {t['tab_list_bg']};
+        border: 1px solid {t['tab_list_border']};
+        color: {t['tab_list_text']};
         outline: none;
     }}
 
-    QComboBox QAbstractItemView {{
-        background-color: {t['panel_bg']};
-        border: 1px solid {t['panel_border']};
-        color: {t['color_text']};
-        selection-background-color: {t['tree_selected_bg']};
-        selection-color: {t['color_text']};
+    QListWidget::item {{
+        padding: 4px 6px;
     }}
 
+    QListWidget::item:selected {{
+        background: {t['tab_list_selected_bg']};
+        color: {t['tab_list_selected_text']};
+    }}
+
+    QListWidget::item:hover {{
+        background: {t['tab_list_hover_bg']};
+    }}
+
+    /* Sağ detay alanları (QTextEdit – proje info, açma detay, buluntu detay, rapor metni) */
+    QTextEdit {{
+        background: {t['tab_detail_bg']};
+        border: 1px solid {t['tab_detail_border']};
+        color: {t['tab_detail_text']};
+        selection-background-color: {t['tab_list_selected_bg']};
+        selection-color: {t['tab_list_selected_text']};
+    }}
+
+    QTextEdit[placeholderText] {{
+        color: {t['tab_detail_placeholder']};
+    }}
+
+    /* Proje seçim combobox'ı (üst bilgi alanı) */
+    QComboBox#ProjectCombo {{
+        background: {t['tab_list_bg']};
+        border: 1px solid {t['tab_list_border']};
+        color: {t['tab_list_text']};
+        padding: 2px 6px;
+    }}
+
+    QComboBox#ProjectCombo QAbstractItemView {{
+        background: {t['tab_list_bg']};
+        border: 1px solid {t['tab_list_border']};
+        color: {t['tab_list_text']};
+        selection-background-color: {t['tab_list_selected_bg']};
+        selection-color: {t['tab_list_selected_text']};
+    }}
     """
 
 
@@ -374,34 +331,25 @@ def build_map_css_vars() -> str:
     """
     t = THEME
     lines = [
-        # Font & temel
         f"--font-main: {t['font_main']};",
         f"--color-bg: {t['color_bg']};",
         f"--color-text: {t['color_text']};",
-        f"--color-text-muted: {t['color_text_muted']};",
-        # Panel & kartlar
         f"--panel-bg: {t['panel_bg']};",
         f"--panel-border: {t['panel_border']};",
         f"--panel-shadow: {t['panel_shadow']};",
-        f"--panel-radius: {t['panel_radius']}px;",
-        # Accent
         f"--color-accent: {t['color_accent']};",
-        f"--color-accent-soft: {t['color_accent_soft']};",
-        # Filter bar
         f"--filter-bg: {t['filter_bg']};",
         f"--filter-border: {t['filter_border']};",
         f"--filter-placeholder: {t['filter_placeholder']};",
-        # Zoom text (harita sağ alt kısım vs.)
-        f"--zoom-text-color: {t['zoom_text_color']};",
-        # Layer list
+        f"--zoom-text-color: {t.get('zoom_text_color', t['color_text'])};",
         f"--layer-item-bg: {t['layer_item_bg']};",
         f"--layer-item-hover-bg: {t['layer_item_hover_bg']};",
         f"--layer-item-drag-bg: {t['layer_item_drag_bg']};",
-        # Legend
         f"--legend-text: {t['legend_text']};",
         f"--legend-header-text: {t['legend_header_text']};",
         f"--legend-scale-title: {t['legend_scale_title']};",
         f"--legend-z-text: {t['legend_z_text']};",
+        f"--color-text-muted: {t['color_text_muted']};",
     ]
     # map_template.html'de düzgün girintili görünmesi için başına 8 boşluk ekleyelim
     return "\n        ".join(lines)

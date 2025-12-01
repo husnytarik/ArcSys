@@ -93,6 +93,23 @@ def get_active_project_id(con: sqlite3.Connection | None = None) -> Optional[int
     return ACTIVE_PROJECT_ID
 
 
+def insert_vector_layer(project_id: int, name: str, geojson: str):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO vector_layers (project_id, name, geojson)
+        VALUES (?, ?, ?)
+        """,
+        (project_id, name, geojson),
+    )
+    conn.commit()
+    layer_id = cur.lastrowid
+    conn.close()
+    return layer_id
+
+
 def set_active_project_id(project_id: int) -> None:
     """Aktif projeyi değiştir."""
     global ACTIVE_PROJECT_ID

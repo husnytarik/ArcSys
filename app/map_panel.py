@@ -18,13 +18,17 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
 from core.map_data import load_map_data, MapData
-from core.utils import WEB_DIR
 from core.theme import build_map_css_vars
 
 from app.layer_tree import LayerTreeWidget
 
 # Haritada kullanacağımız payload için ayrı bir rol:
 MAP_ROLE = Qt.ItemDataRole.UserRole + 1
+
+# Bu dosyanın konumuna göre web klasörünü bulalım
+BASE_DIR = Path(__file__).resolve().parent.parent
+WEB_DIR = BASE_DIR / "web"
+MAP_TEMPLATE_PATH = WEB_DIR / "map_template.html"
 
 
 class MapPanel(QWidget):
@@ -66,7 +70,7 @@ class MapPanel(QWidget):
         # Seçim değişince haritada odaklama
         self.layers_tree.currentItemChanged.connect(self.on_layer_item_selected)
 
-        # Göz ikonları (visibility) değişince ileride haritaya yansıtmak için sinyal
+        # Göz ikonları (visibility) değişince haritaya yansıtmak için sinyal
         self.layers_tree.layerVisibilityChanged.connect(
             self.on_layer_visibility_changed
         )
@@ -83,6 +87,8 @@ class MapPanel(QWidget):
         splitter.addWidget(self.map_view)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 4)
+        # Soldaki paneli biraz daha geniş başlat
+        splitter.setSizes([320, 880])
 
         # ---------------------------
         # ÜST ARAÇ ÇUBUĞU (tamamen temadan boyansın)
@@ -100,6 +106,12 @@ class MapPanel(QWidget):
         self.btn_offline_tiles.clicked.connect(self.on_offline_tiles_clicked)
         top_bar.addWidget(self.btn_offline_tiles)
 
+        # Vektör katman ekleme
+        self.btn_import_vector = QPushButton("Vektör Katman Ekle")
+        self.btn_import_vector.setObjectName("MapToolbarButtonVector")
+        self.btn_import_vector.clicked.connect(self.on_import_vector_clicked)
+        top_bar.addWidget(self.btn_import_vector)
+
         # GeoTIFF ortofoto ekleme
         self.btn_import_geotiff = QPushButton("Ortofoto (GeoTIFF) Ekle")
         self.btn_import_geotiff.setObjectName("MapToolbarButtonGeotiff")
@@ -108,12 +120,12 @@ class MapPanel(QWidget):
 
         top_bar.addStretch()
 
-        # Bu toolbar'ın yüksekliği sabit kalsın, pencere büyüyünce şişmesin
+        # Toolbar yüksekliği sabit kalsın
         self.toolbar.setSizePolicy(
             QSizePolicy.Policy.Expanding,  # yatayda esnek
             QSizePolicy.Policy.Fixed,  # dikeyde sabit
         )
-        self.toolbar.setMinimumHeight(32)  # istersen 28–36 arası oynayabiliriz
+        self.toolbar.setMinimumHeight(32)
 
         # Ana layout
         main_layout = QVBoxLayout()
@@ -149,6 +161,20 @@ class MapPanel(QWidget):
                 self,
                 "Eksik Özellik",
                 "GeoTIFF içe aktarma fonksiyonu ana pencerede tanımlı değil.",
+            )
+
+    def on_import_vector_clicked(self):
+        """
+        Vektör (ör. GeoJSON / Shapefile / GPKG / KML / DXF) katmanı ekleme
+        akışını ana pencereden çalıştırır.
+        """
+        if hasattr(self.main_window, "import_vector_layer"):
+            self.main_window.import_vector_layer()
+        else:
+            QMessageBox.warning(
+                self,
+                "Eksik Özellik",
+                "Vektör veri içe aktarma fonksiyonu ana pencerede tanımlı değil.",
             )
 
     def on_layer_item_selected(self, current, previous):
@@ -202,10 +228,14 @@ class MapPanel(QWidget):
 
     # ------------------ Harita yenileme ------------------
 
-    def refresh_map(self):
+    def refresh_map(self) -> None:
+        """Aktif proje için verileri yükler, sol ağaç panelini ve haritayı yeniler."""
         md: MapData = load_map_data()
 
-        # Sol ağaç: köklerin çocuklarını temizle
+        # --------------------------------------------------
+        # SOL AĞAÇ (Açmalar / Buluntular / Seviyeler)
+        # --------------------------------------------------
+        # Eski çocukları temizle
         self.trenches_root.takeChildren()
         self.finds_root.takeChildren()
         self.levels_root.takeChildren()
@@ -286,21 +316,41 @@ class MapPanel(QWidget):
 
         self.layers_tree.expandAll()
 
-        # --- HTML template yükle ---
-        template_path = WEB_DIR / "map_template.html"
-        template_html = template_path.read_text(encoding="utf-8")
+        # --------------------------------------------------
+        # HTML TEMPLATE YÜKLE VE PLACEHOLDER'LARI DOLDUR
+        # --------------------------------------------------
+        try:
+            with open(MAP_TEMPLATE_PATH, "r", encoding="utf-8") as f:
+                template_html = f.read()
+        except OSError as e:
+            QMessageBox.critical(
+                self,
+                "Şablon Hatası",
+                f"Harita HTML şablonu açılamadı:\n{e}",
+            )
+            return
 
+        # Tema değişkenleri (:root içindeki CSS var'lar)
         theme_vars = build_map_css_vars()
 
+        # JSON veriler (bunlar map_template.html'deki şu satıra gidiyor:
+        # const trenchesData = __TRENCHES_JSON__; vs.)
+        trenches_json = json.dumps(md.trenches, ensure_ascii=False)
+        finds_json = json.dumps(md.finds, ensure_ascii=False)
+        layers_json = json.dumps(md.layers, ensure_ascii=False)
+        error_msg_sanitized = (md.error_message or "").replace('"', '\\"')
+
+        # Placeholder doldurma
         html = (
             template_html.replace("__THEME_CSS_VARS__", theme_vars)
-            .replace("__TRENCHES_JSON__", json.dumps(md.trenches))
-            .replace("__FINDS_JSON__", json.dumps(md.finds))
-            .replace("__LAYERS_JSON__", json.dumps(md.layers))
+            .replace("__TRENCHES_JSON__", trenches_json)
+            .replace("__FINDS_JSON__", finds_json)
+            .replace("__LAYERS_JSON__", layers_json)
             .replace("__CENTER_LAT__", str(md.center_lat))
             .replace("__CENTER_LON__", str(md.center_lon))
-            .replace("__ERROR_MSG__", (md.error_message or "").replace('"', '\\"'))
+            .replace("__ERROR_MSG__", error_msg_sanitized)
         )
 
+        # HTML’i QWebEngineView’e bas
         base_url = QUrl.fromLocalFile(str(WEB_DIR) + os.sep)
         self.map_view.setHtml(html, base_url)

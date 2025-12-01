@@ -248,6 +248,50 @@ def _load_map_layers(cur, transformer, project_id) -> List[Dict[str, Any]]:
     return layers
 
 
+def _load_vector_layers(cur, transformer, project_id):
+    """
+    vector_layers tablosundan yüklenir.
+    GeoJSON / KML / GPKG / SHP gibi formatların önceden
+    dönüştürülmüş WGS84 koordinatlı GeoJSON path'leri gönderilir.
+    """
+    cur.execute(
+        """
+        SELECT id, name, file_path, layer_type
+        FROM vector_layers
+        WHERE project_id = ?
+        """,
+        (project_id,),
+    )
+    rows = cur.fetchall()
+
+    base_dir = os.path.dirname(DB_PATH)
+    layers = []
+
+    for lid, name, file_path, layer_type in rows:
+        if not file_path:
+            continue
+
+        abs_path = Path(base_dir) / file_path
+        if not abs_path.exists():
+            continue
+
+        # GeoJSON olarak okunacak
+        rel = os.path.relpath(abs_path, base_dir).replace("\\", "/")
+        file_url = f"file:///{rel}"
+
+        layers.append(
+            {
+                "id": lid,
+                "name": name,
+                "kind": "vector",
+                "file_url": file_url,
+                "layer_type": layer_type,
+            }
+        )
+
+    return layers
+
+
 def load_all_map_data():
     """
     Harita için gerekli tüm verileri (açmalar, buluntular, katmanlar) yükler.
@@ -262,7 +306,7 @@ def load_all_map_data():
         trenches_data = _load_trenches(cur, transformer, project_id)
         finds_data = _load_finds(cur, transformer, project_id)
         layers_data = _load_map_layers(cur, transformer, project_id)
-
+        vector_layers = _load_vector_layers(cur, transformer, project_id)
         # Merkez belirleme
         if trenches_data and trenches_data[0]["vertices"]:
             center_lat = trenches_data[0]["vertices"][0]["lat"]
@@ -275,4 +319,4 @@ def load_all_map_data():
         if con is not None:
             con.close()
 
-    return trenches_data, finds_data, layers_data, center_lat, center_lon
+    return trenches_data, vector_layers, finds_data, layers_data, center_lat, center_lon

@@ -42,8 +42,6 @@
 
       <!-- Tarih aralığı -->
       <div class="date-filter-group">
-        <span class="filter-label">Tarih:</span>
-
         <input
           id="date-from"
           type="text"
@@ -59,7 +57,6 @@
           placeholder="gg.aa.yyyy"
           title="Bitiş tarihi (gg.aa.yyyy)"
         />
-
         <button id="date-filter-clear" title="Tarih filtresini temizle">
           ×
         </button>
@@ -75,6 +72,20 @@
           <input type="range" id="depth-min" step="0.01" />
           <input type="range" id="depth-max" step="0.01" />
         </div>
+      </div>
+
+      <!-- Altlık seçimi -->
+      <div class="filter-group" id="basemap-group">
+        <span class="filter-label">Altlık:</span>
+        <select id="basemap-select" title="Altlık haritası seç">
+          <option value="osm">OSM (Standart)</option>
+          <option value="osm_hot">OSM Humanitarian</option>
+          <option value="opentopo">OpenTopoMap</option>
+          <option value="carto_light">Carto Light</option>
+          <option value="carto_dark">Carto Dark</option>
+          <option value="carto_voyager">Carto Voyager</option>
+          <option value="None">Altlık Yok</option>
+        </select>
       </div>
 
       <!-- Sağ taraf: Zoom + Katmanlar -->

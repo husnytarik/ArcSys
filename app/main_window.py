@@ -1,9 +1,10 @@
 # app/main_window.py
+
 import os
-from typing import Optional
 import sys
-from pathlib import Path
 import time
+from pathlib import Path
+from typing import Optional
 
 from PyQt6.QtCore import Qt, QCoreApplication
 from PyQt6.QtGui import QIcon, QPixmap
@@ -18,6 +19,7 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QStatusBar,
     QMessageBox,
+    QFileDialog,
     QInputDialog,
     QSplashScreen,
 )
@@ -32,8 +34,8 @@ from core.db import (
     set_active_project_id,
 )
 from app.tabs import ProjectDetailsTab, TrenchesTab, FindsTab, ReportsTab
+from core.vector_import import import_vector_file
 from app.map_panel import MapPanel
-
 from core.theme import build_qt_stylesheet
 
 
@@ -41,7 +43,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # --- Aktif proje bilgisi ---
+        # --- Project info ---
         self.current_project_id: Optional[int] = get_active_project_id()
         self.current_project_code: Optional[str] = self._load_project_code(
             self.current_project_id
@@ -50,16 +52,14 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ArcSys – Arkeolojik Kazı Yönetim Sistemi")
         self.resize(1400, 800)
 
-        # ---------------------------
-        # Merkez widget ve layout
-        # ---------------------------
+        # --- Central layout ---
         central = QWidget()
         central_layout = QVBoxLayout(central)
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.setSpacing(0)
         self.setCentralWidget(central)
 
-        # Üst bar: aktif proje adı (varsa)
+        # --- Header bar ---
         header_text = "ArcSys – [Aktif Proje]"
         try:
             con = get_connection()
@@ -70,15 +70,10 @@ class MainWindow(QMainWindow):
             if row and row[0]:
                 header_text = f"ArcSys – {row[0]}"
         except Exception:
-            # DB yoksa / erişilemezse sessiz geç, başlık generic kalsın
             pass
 
-        # Header label
         self.header_label = QLabel(header_text)
         self.header_label.setObjectName("HeaderLabel")
-
-        # Üst bar container
-        from core.theme import build_qt_stylesheet
 
         self.top_bar = QWidget()
         self.top_bar.setObjectName("TopBar")
@@ -89,22 +84,18 @@ class MainWindow(QMainWindow):
         top_bar_layout.addWidget(self.header_label)
         top_bar_layout.addStretch()
 
-        # Uygulamanın genel QSS'ini yükle
         self.setStyleSheet(build_qt_stylesheet())
-
-        # Eski: central_layout.addWidget(self.header_label)
-        # Yeni: bütün bar’ı ekliyoruz
         central_layout.addWidget(self.top_bar)
 
-        # Üstte sekmeler, altta harita olacak şekilde dikey splitter
+        # --- Tab + Map splitter ---
         vertical_splitter = QSplitter(Qt.Orientation.Vertical)
         vertical_splitter.setObjectName("MainVerticalSplitter")
         central_layout.addWidget(vertical_splitter, stretch=1)
 
-        # Alt harita paneli
+        # --- Map panel ---
         self.map_panel = MapPanel(self)
 
-        # Sekmeler
+        # --- Tabs ---
         self.project_tab = ProjectDetailsTab()
         self.trenches_tab = TrenchesTab(self.map_panel)
         self.finds_tab = FindsTab(self.map_panel)
@@ -118,20 +109,18 @@ class MainWindow(QMainWindow):
 
         vertical_splitter.addWidget(self.tabs)
         vertical_splitter.addWidget(self.map_panel)
-
         vertical_splitter.setStretchFactor(0, 3)
         vertical_splitter.setStretchFactor(1, 2)
 
-        # Proje değişince diğerlerini güncelle
+        # --- Project change: refresh tabs + map ---
         self.project_tab.projectChanged.connect(self.on_project_changed)
 
-        # ALTTAKİ LOADING BAR'I BAŞTAN OLUŞTUR
+        # --- Loading bar ---
         self._setup_loading_bar()
+        self.showMaximized()
 
+    # --- Offline tile download ---
     def download_offline_tiles_ui(self):
-        """Kazı merkezi etrafında buffer + min/max zoom ile offline tile indirir."""
-
-        # 0) Kaynak seçimi
         sources = {
             "ArcGIS World Imagery": (
                 "https://services.arcgisonline.com/ArcGIS/rest/services/"
@@ -144,14 +133,8 @@ class MainWindow(QMainWindow):
         }
 
         source_names = list(sources.keys())
-
         source_name, ok = QInputDialog.getItem(
-            self,
-            "Kaynak Seç",
-            "Hangi tile kaynağından indirilsin?",
-            source_names,
-            0,
-            False,
+            self, "Kaynak Seç", "Tile kaynağı:", source_names, 0, False
         )
         if not ok:
             return
@@ -159,52 +142,23 @@ class MainWindow(QMainWindow):
         tile_template = sources[source_name]
         layer_name = f"{source_name} (Offline)"
 
-        # 1) Buffer (km)
         buffer_km, ok = QInputDialog.getDouble(
-            self,
-            "Buffer (km)",
-            "Kazı alanı etrafında ne kadar buffer kullanılsın? (km)",
-            0.2,
-            0.0,
-            1000.0,
-            2,
+            self, "Buffer (km)", "Buffer değeri (km):", 0.2, 0.0, 1000.0, 2
         )
         if not ok:
             return
 
-        # 2) Min zoom
-        min_zoom, ok = QInputDialog.getInt(
-            self,
-            "Min Zoom",
-            "Minimum zoom seviyesi:",
-            12,
-            0,
-            22,
-        )
+        min_zoom, ok = QInputDialog.getInt(self, "Min Zoom", "Minimum zoom:", 12, 0, 22)
         if not ok:
             return
 
-        # 3) Max zoom
         max_zoom, ok = QInputDialog.getInt(
-            self,
-            "Max Zoom",
-            "Maksimum zoom seviyesi:",
-            18,
-            0,
-            22,
+            self, "Max Zoom", "Maksimum zoom:", 18, 0, 22
         )
-        if not ok:
+        if not ok or max_zoom < min_zoom:
+            QMessageBox.warning(self, "Hata", "Zoom aralığı hatalı.")
             return
 
-        if max_zoom < min_zoom:
-            QMessageBox.warning(
-                self,
-                "Zoom Hatası",
-                "Maksimum zoom, minimum zoom'dan küçük olamaz.",
-            )
-            return
-
-        # 4) Alt loading bar'ı başlat
         self.show_loading(
             f"Offline tile indiriliyor (zoom {min_zoom}–{max_zoom})...",
             indeterminate=False,
@@ -213,8 +167,7 @@ class MainWindow(QMainWindow):
         def progress_cb(step: int, total: int, message: str):
             if total <= 0:
                 total = 1
-            if hasattr(self, "loading_bar"):
-                self.loading_bar.set_message(message)
+            self.loading_bar.set_message(message)
             self.set_loading_progress(step, maximum=total)
             QCoreApplication.processEvents()
 
@@ -229,23 +182,16 @@ class MainWindow(QMainWindow):
             )
         except Exception as exc:
             self.hide_loading()
-            QMessageBox.critical(
-                self,
-                "İndirme Hatası",
-                f"Offline tile indirilirken hata oluştu:\n{exc}",
-            )
+            QMessageBox.critical(self, "Hata", f"Offline indirme hatası:\n{exc}")
             return
 
         self.hide_loading()
         QMessageBox.information(
-            self,
-            "Tamamlandı",
-            f"Offline tile indirme tamamlandı.\n\nKatman adı: {layer_name}",
+            self, "Tamamlandı", f"Offline tile indirildi.\nKatman: {layer_name}"
         )
-
-        # Haritayı yenile ki sağ üstte layer listesine yansısın
         self.map_panel.refresh_map()
 
+    # --- Raster import ---
     def import_geotiff_orthophoto(self):
         """Aktif proje için GeoTIFF ortofoto içe aktarır ve alt bardan takip eder."""
         if not self.current_project_code:
@@ -257,7 +203,7 @@ class MainWindow(QMainWindow):
             return
 
         # Alt loading bar – yüzdeyle çalışsın
-        self.show_loading("GeoTIFF içe aktarılıyor...", indeterminate=False)
+        self.show_loading("GeoTIFF içe aktarılıyor.", indeterminate=False)
 
         def progress_cb(step: int, total: int, message: str):
             if total <= 0:
@@ -291,49 +237,104 @@ class MainWindow(QMainWindow):
         # Haritayı yenile ki sağ üstte yeni katman görünsün
         self.map_panel.refresh_map()
 
-    # ------------------------------------
-    # Proje değiştiğinde sekmeleri / haritayı yenile
-    # ------------------------------------
+    # --- Vector import ---
+
+    def import_vector_layer(self):
+        """
+        Aktif proje için vektör katmanı (GPKG / SHP / KML / DXF / GeoJSON) içe aktarır.
+
+        core.vector_import.import_vector_file fonksiyonunu çağırır;
+        o fonksiyon dosya seçimini, okuma ve DB'ye kaydetmeyi kendi içinde yapar.
+        """
+        # 1) Proje kontrolü
+        project_id = self.current_project_id
+        if not project_id:
+            QMessageBox.warning(
+                self,
+                "Proje Seçilmedi",
+                "Önce bir proje seçmelisiniz.",
+            )
+            return
+
+        # 2) Loading bar göster
+        self.show_loading("Vektör katman içe aktarılıyor...", indeterminate=True)
+
+        try:
+            # core/vector_import.py içindeki fonksiyon:
+            # def import_vector_file(parent, project_id: int)
+            result = import_vector_file(self, project_id)
+        except Exception as exc:
+            self.hide_loading()
+            QMessageBox.critical(
+                self,
+                "Vektör İçe Aktarma Hatası",
+                f"Vektör içe aktarılırken hata oluştu:\n{exc}",
+            )
+            return
+
+        # 3) İş bitti
+        self.hide_loading()
+
+        if not result:
+            # Kullanıcı dosya seçmediyse vs.
+            return
+
+        QMessageBox.information(
+            self,
+            "Tamamlandı",
+            f"Vektör katmanı içe aktarıldı: {result['name']}",
+        )
+
+        # Haritayı yenile → sağdaki layer listesine + Leaflet haritasına yansısın
+        self.map_panel.refresh_map()
+
+    # --- Current project lookup ---
+    def get_current_project(self):
+        idx = self.project_combo.currentIndex()
+        if idx < 0:
+            return None
+
+        data = self.project_combo.itemData(idx)
+        if isinstance(data, int):
+            return data
+
+        name = self.project_combo.currentText()
+        con = get_connection()
+        cur = con.cursor()
+        cur.execute("SELECT id FROM projects WHERE name=?", (name,))
+        row = cur.fetchone()
+        con.close()
+        return row[0] if row else None
+
+    # --- Project changed ---
     def on_project_changed(self, project_id: int):
         set_active_project_id(project_id)
         self.current_project_id = project_id
         self.current_project_code = self._load_project_code(project_id)
 
-        # Sekmeler ve harita yenilensin
         self.trenches_tab.load_trenches()
         self.finds_tab.load_finds()
-        self.map_panel.load_embedded_leaflet_map()
+        self.map_panel.refresh_map()
 
+    # --- Loading bar setup ---
     def _setup_loading_bar(self):
-        """En altta, sadece gerektiğinde görünen ince loading bar oluşturur."""
-        # Status bar yoksa oluştur
         if not self.statusBar():
             self.setStatusBar(QStatusBar(self))
 
         self.loading_bar = LoadingBarWidget(self)
-        # Permanent widget olarak en alta yerleştiriyoruz
         self.statusBar().addPermanentWidget(self.loading_bar, 1)
         self.loading_bar.hide()
-
-        # Rahatsız etmesin diye status bar'ı da ince tutabiliriz
         self.statusBar().setSizeGripEnabled(False)
 
-    # --- Loading bar kontrol metotları ---
-
+    # --- Loading bar controls ---
     def show_loading(
-        self, message: str = "Veriler yükleniyor...", *, indeterminate: bool = True
+        self, message: str = "Yükleniyor...", *, indeterminate: bool = True
     ):
-        """Loading bar'ı gösterir.
-
-        indeterminate=True ise sonsuz (busy) modda çalışır.
-        """
         if not hasattr(self, "loading_bar"):
             return
 
         self.loading_bar.set_message(message)
-
         if indeterminate:
-            # 0,0 → Qt'de 'belirsiz' anlamına gelir (marquee tarzı animasyon)
             self.loading_bar.set_range(0, 0)
             self.loading_bar.set_value(0)
         else:
@@ -341,27 +342,19 @@ class MainWindow(QMainWindow):
             self.loading_bar.set_value(0)
 
         self.loading_bar.show()
-        self.statusBar().show()  # emin olalım
+        self.statusBar().show()
 
     def set_loading_progress(self, value: int, maximum: int | None = None):
-        """Yüzde bazlı ilerleme günceller (indeterminate modda kullanma)."""
-        if not hasattr(self, "loading_bar"):
-            return
-
         if maximum is not None:
             self.loading_bar.set_range(0, maximum)
-
         self.loading_bar.set_value(value)
 
     def hide_loading(self):
-        """İşlem bittiğinde loading bar'ı gizler."""
-        if not hasattr(self, "loading_bar"):
-            return
+        if hasattr(self, "loading_bar"):
+            self.loading_bar.hide()
 
-        self.loading_bar.hide()
-
+    # --- Project code loader ---
     def _load_project_code(self, project_id: int | None) -> str | None:
-        """Verilen project_id için projects.code döner; yoksa None."""
         if not project_id:
             return None
         try:
@@ -370,75 +363,51 @@ class MainWindow(QMainWindow):
             cur.execute("SELECT code FROM projects WHERE id = ?", (project_id,))
             row = cur.fetchone()
             con.close()
-            if row and row[0]:
-                return row[0]
+            return row[0] if row else None
         except Exception:
-            pass
-        return None
+            return None
 
 
+# --- Application creation (run.py entrypoint) ---
 def create_app():
-    """
-    run.py için yardımcı: QApplication + MainWindow oluşturur.
-    Logo ve splash ekranını burada tanımlar.
-    """
-    # GPU uyarılarını azaltmak için yazılımsal OpenGL
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_UseSoftwareOpenGL)
 
-    # Veritabanı yoksa kullanıcıya hata ver ve çık
     if not os.path.exists(DB_PATH):
         QMessageBox.critical(
-            None,
-            "Veritabanı bulunamadı",
-            f"ArcSys.db dosyası şu klasörde bulunamadı:\n{DB_PATH}",
+            None, "Veritabanı Yok", f"ArcSys.db bulunamadı:\n{DB_PATH}"
         )
         return None, None
 
-    # --- QApplication ---
     app = QApplication(sys.argv)
 
-    # Proje kökü: .../ArcSys
     base_dir = Path(__file__).resolve().parent.parent
     icon_path = base_dir / "assets" / "logo" / "logo_1024.png"
 
-    # Debug için:
-    print("Icon path:", icon_path, "exists:", icon_path.exists())
-
-    # --- Global uygulama ikonu ---
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
-    # --- Splash ekranı (küçültülmüş) ---
     splash = None
     if icon_path.exists():
         pixmap = QPixmap(str(icon_path))
         if not pixmap.isNull():
-            # Maksimum splash boyutu (px)
-            MAX_SPLASH_SIZE = 320
-
-            # Oran korunarak küçült
             pixmap = pixmap.scaled(
-                MAX_SPLASH_SIZE,
-                MAX_SPLASH_SIZE,
+                320,
+                320,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
-
             splash = QSplashScreen(pixmap)
             splash.show()
             app.processEvents()
 
-    # --- Ana pencere ---
     window = MainWindow()
 
-    # Pencere özel ikonu (taskbar + sol üst köşe)
     if icon_path.exists():
         window.setWindowIcon(QIcon(str(icon_path)))
 
     window.show()
 
-    # Splash'i pencere açıldıktan sonra kapat
-    if splash is not None:
+    if splash:
         time.sleep(0.5)
         splash.finish(window)
 

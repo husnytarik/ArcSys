@@ -66,10 +66,54 @@ window._applyQtVisibilityToLayers = applyQtVisibilityToLayers;
 const rasterPane = map.createPane("rasterPane");
 rasterPane.style.zIndex = 350;
 
-const osmLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 22,
-  attribution: "© OpenStreetMap contributors",
-}).addTo(map);
+// Farklı altlık haritaları
+const baseLayers = {
+  osm: L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 22,
+    attribution: "© OpenStreetMap contributors",
+  }),
+  osm_hot: L.tileLayer(
+    "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+    {
+      maxZoom: 20,
+      attribution:
+        "© OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team",
+    }
+  ),
+  opentopo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+    maxZoom: 17,
+    attribution:
+      "© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)",
+  }),
+  carto_voyager: L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 20,
+      attribution: "© OpenStreetMap contributors © CARTO",
+    }
+  ),
+  carto_light: L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 20,
+      attribution: "© OpenStreetMap contributors © CARTO",
+    }
+  ),
+  carto_dark: L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 20,
+      attribution: "© OpenStreetMap contributors © CARTO",
+    }
+  ),
+  None: L.tileLayer("", {
+    maxZoom: 22,
+    attribution: "",
+  }),
+};
+
+let currentBaseLayer = baseLayers.osm;
+currentBaseLayer.addTo(map);
 
 const overlayEntries = [];
 let firstImageBounds = null;
@@ -389,6 +433,22 @@ function buildLayerPanel() {
     layerListEl.appendChild(item);
   });
 }
+(window.vectorLayers || []).forEach((v) => {
+  fetch(v.file_url)
+    .then((r) => r.json())
+    .then((geo) => {
+      const layer = L.geoJSON(geo).addTo(map);
+      overlayEntries.push({
+        name: v.name,
+        layer,
+        kind: "vector",
+      });
+      updateLayerOrderFromDom();
+    })
+    .catch((err) => {
+      console.error("Vektör layer yüklenemedi:", v.name, err);
+    });
+});
 
 function updateLayerOrderFromDom() {
   const items = Array.from(layerListEl.querySelectorAll(".layer-item"));
@@ -476,6 +536,27 @@ function updateDepthBarBackground(zFrom, zTo) {
 // =====================================
 // DATE PARSER
 // =====================================
+function autoFormatDateInput(input) {
+  // Sadece rakamları al
+  let v = input.value.replace(/\D/g, "");
+  if (v.length > 8) v = v.slice(0, 8);
+
+  let formatted = "";
+
+  if (v.length <= 2) {
+    // 1–2 hane: GG
+    formatted = v;
+  } else if (v.length <= 4) {
+    // 3–4 hane: GG.AA
+    formatted = v.slice(0, 2) + "." + v.slice(2);
+  } else {
+    // 5–8 hane: GG.AA.YYYY
+    formatted = v.slice(0, 2) + "." + v.slice(2, 4) + "." + v.slice(4);
+  }
+
+  input.value = formatted;
+}
+
 function parseDateLoose(str) {
   if (!str) return null;
   let s = String(str).trim();
@@ -674,6 +755,19 @@ if (filterInput) {
 
 const dateFromInput = document.getElementById("date-from");
 const dateToInput = document.getElementById("date-to");
+
+if (dateFromInput) {
+  dateFromInput.addEventListener("input", () => {
+    autoFormatDateInput(dateFromInput);
+  });
+}
+
+if (dateToInput) {
+  dateToInput.addEventListener("input", () => {
+    autoFormatDateInput(dateToInput);
+  });
+}
+
 const clearDateBtn = document.getElementById("date-filter-clear");
 
 if (dateFromInput) {
@@ -709,6 +803,27 @@ if (depthMinInput)
   depthMinInput.addEventListener("input", () => applyFilter(filterInput.value));
 if (depthMaxInput)
   depthMaxInput.addEventListener("input", () => applyFilter(filterInput.value));
+
+// Altlık seçimi
+const basemapSelect = document.getElementById("basemap-select");
+
+if (basemapSelect) {
+  basemapSelect.addEventListener("change", () => {
+    const key = basemapSelect.value;
+    const nextLayer = baseLayers[key];
+    if (!nextLayer || nextLayer === currentBaseLayer) return;
+
+    // Eski altlığı kaldır, yenisini ekle
+    if (currentBaseLayer) {
+      map.removeLayer(currentBaseLayer);
+    }
+    nextLayer.addTo(map);
+    currentBaseLayer = nextLayer;
+  });
+
+  // Açılışta default değeri senkronize et
+  basemapSelect.value = "osm";
+}
 
 // =====================================
 // PUBLIC API (Qt için)
