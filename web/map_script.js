@@ -26,7 +26,9 @@ const layerVisibility = {};
 function applyQtVisibilityToLayers() {
   const groupTrenchesVisible = layerVisibility["group_trenches"] !== false;
   const groupFindsVisible = layerVisibility["group_finds"] !== false;
+  const groupLayersVisible = layerVisibility["group_layers"] !== false;
 
+  // Açmalar
   Object.entries(trenchLayers).forEach(([idStr, layer]) => {
     const id = parseInt(idStr, 10);
     const key = `trench_${id}`;
@@ -34,11 +36,12 @@ function applyQtVisibilityToLayers() {
     const finalVisible = groupTrenchesVisible && selfVisible;
     if (finalVisible) {
       if (!map.hasLayer(layer)) layer.addTo(map);
-    } else {
-      if (map.hasLayer(layer)) map.removeLayer(layer);
+    } else if (map.hasLayer(layer)) {
+      map.removeLayer(layer);
     }
   });
 
+  // Buluntular
   Object.entries(findLayers).forEach(([idStr, layer]) => {
     const id = parseInt(idStr, 10);
     const key = `find_${id}`;
@@ -46,10 +49,36 @@ function applyQtVisibilityToLayers() {
     const finalVisible = groupFindsVisible && selfVisible;
     if (finalVisible) {
       if (!map.hasLayer(layer)) layer.addTo(map);
-    } else {
-      if (map.hasLayer(layer)) map.removeLayer(layer);
+    } else if (map.hasLayer(layer)) {
+      map.removeLayer(layer);
     }
   });
+
+  // Harita katmanları (GeoTIFF + tile, overlayEntries üzerinden)
+  if (typeof overlayEntries !== "undefined") {
+    overlayEntries.forEach((entry) => {
+      // Öncelik: id varsa overlay_<id>, yoksa overlay_<name>
+      const keyById = entry.id != null ? `overlay_${entry.id}` : null;
+      const keyByName = `overlay_${entry.name}`;
+
+      let selfVisible = true;
+      if (keyById && keyById in layerVisibility) {
+        selfVisible = layerVisibility[keyById] !== false;
+      } else if (keyByName in layerVisibility) {
+        selfVisible = layerVisibility[keyByName] !== false;
+      }
+
+      const finalVisible = groupLayersVisible && selfVisible;
+
+      if (finalVisible) {
+        if (!map.hasLayer(entry.layer)) {
+          entry.layer.addTo(map);
+        }
+      } else if (map.hasLayer(entry.layer)) {
+        map.removeLayer(entry.layer);
+      }
+    });
+  }
 }
 
 function setLayerVisibilityFromQt(layerKey, visible) {
@@ -128,6 +157,7 @@ function parseZoomRangeFromUrlTemplate(urlTemplate) {
   };
 }
 
+// extraLayers: map_template.html içindeki const extraLayers = __LAYERS_JSON__;
 extraLayers.forEach((l) => {
   if (l.kind === "tile" && l.url_template) {
     const zoomInfo = parseZoomRangeFromUrlTemplate(l.url_template);
@@ -140,7 +170,12 @@ extraLayers.forEach((l) => {
       opts.maxNativeZoom = zoomInfo.maxZoom;
     }
     const layer = L.tileLayer(l.url_template, opts).addTo(map);
-    overlayEntries.push({ name: l.name, layer, kind: "tile" });
+    overlayEntries.push({
+      id: l.id ?? null,
+      name: l.name,
+      layer,
+      kind: "tile",
+    });
   } else if (l.kind === "image" && l.file_url) {
     const bounds = [
       [l.min_lat, l.min_lon],
@@ -150,7 +185,12 @@ extraLayers.forEach((l) => {
       opacity: 0.8,
       pane: "rasterPane",
     }).addTo(map);
-    overlayEntries.push({ name: l.name, layer, kind: "image" });
+    overlayEntries.push({
+      id: l.id ?? null,
+      name: l.name,
+      layer,
+      kind: "image",
+    });
     if (!firstImageBounds) firstImageBounds = bounds;
   }
 });
@@ -271,25 +311,25 @@ legend.onAdd = function () {
         <span style="color: var(--legend-header-text);">Lejant</span>
         <span class="toggle-icon">▸</span>
       </div>
-    
+
       <div class="legend-body">
-    
+
         <div class="legend-row">
           <span class="legend-swatch" style="background:#4c9be8;"></span>
           <span class="legend-label" style="color: var(--legend-text);">Açmalar</span>
         </div>
-    
+
         <div class="legend-row">
           <span class="legend-swatch round" style="background:#d62728;"></span>
           <span class="legend-label" style="color: var(--legend-text);">Buluntular</span>
         </div>
-    
+
         <div class="legend-scale-title" style="color: var(--legend-scale-title);">
           Z Skala
         </div>
-    
+
         <div class="legend-scale-bar"></div>
-    
+
         ${
           zMin !== null && zMax !== null
             ? `<div class="legend-z-text" style="color: var(--legend-z-text);">
@@ -298,7 +338,7 @@ legend.onAdd = function () {
              </div>`
             : ""
         }
-    
+
       </div>
     </div>
   `;
@@ -433,12 +473,15 @@ function buildLayerPanel() {
     layerListEl.appendChild(item);
   });
 }
+
+// Vektör katmanlar (varsa)
 (window.vectorLayers || []).forEach((v) => {
   fetch(v.file_url)
     .then((r) => r.json())
     .then((geo) => {
       const layer = L.geoJSON(geo).addTo(map);
       overlayEntries.push({
+        id: v.id ?? null,
         name: v.name,
         layer,
         kind: "vector",
@@ -537,20 +580,16 @@ function updateDepthBarBackground(zFrom, zTo) {
 // DATE PARSER
 // =====================================
 function autoFormatDateInput(input) {
-  // Sadece rakamları al
   let v = input.value.replace(/\D/g, "");
   if (v.length > 8) v = v.slice(0, 8);
 
   let formatted = "";
 
   if (v.length <= 2) {
-    // 1–2 hane: GG
     formatted = v;
   } else if (v.length <= 4) {
-    // 3–4 hane: GG.AA
     formatted = v.slice(0, 2) + "." + v.slice(2);
   } else {
-    // 5–8 hane: GG.AA.YYYY
     formatted = v.slice(0, 2) + "." + v.slice(2, 4) + "." + v.slice(4);
   }
 
@@ -796,13 +835,17 @@ const zoomOutBtn = document.getElementById("zoom-out-btn");
 if (zoomInBtn) zoomInBtn.addEventListener("click", () => map.zoomIn());
 if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => map.zoomOut());
 
-const depthMinInput = document.getElementById("depth-min");
-const depthMaxInput = document.getElementById("depth-max");
+const depthMinInput2 = document.getElementById("depth-min");
+const depthMaxInput2 = document.getElementById("depth-max");
 
-if (depthMinInput)
-  depthMinInput.addEventListener("input", () => applyFilter(filterInput.value));
-if (depthMaxInput)
-  depthMaxInput.addEventListener("input", () => applyFilter(filterInput.value));
+if (depthMinInput2)
+  depthMinInput2.addEventListener("input", () =>
+    applyFilter(filterInput ? filterInput.value : "")
+  );
+if (depthMaxInput2)
+  depthMaxInput2.addEventListener("input", () =>
+    applyFilter(filterInput ? filterInput.value : "")
+  );
 
 // Altlık seçimi
 const basemapSelect = document.getElementById("basemap-select");
@@ -813,7 +856,6 @@ if (basemapSelect) {
     const nextLayer = baseLayers[key];
     if (!nextLayer || nextLayer === currentBaseLayer) return;
 
-    // Eski altlığı kaldır, yenisini ekle
     if (currentBaseLayer) {
       map.removeLayer(currentBaseLayer);
     }
@@ -821,7 +863,6 @@ if (basemapSelect) {
     currentBaseLayer = nextLayer;
   });
 
-  // Açılışta default değeri senkronize et
   basemapSelect.value = "osm";
 }
 

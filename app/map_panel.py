@@ -21,6 +21,10 @@ from core.map_data import load_map_data, MapData
 from core.theme import build_map_css_vars
 
 from app.layer_tree import LayerTreeWidget
+from app.ui_actions import (
+    action_download_tiles,
+    action_import_geotiff,
+)
 
 # Haritada kullanacağımız payload için ayrı bir rol:
 MAP_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -39,9 +43,9 @@ class MapPanel(QWidget):
         # Map panel QSS için isim
         self.setObjectName("MapPanel")
 
-        # ---------------------------
+        # ------------------------------------------------------------------
         # SOL: Katman ağacı (LayerTreeWidget)
-        # ---------------------------
+        # ------------------------------------------------------------------
         self.layers_tree = LayerTreeWidget(self)
         self.layers_tree.setObjectName("MapLayersTree")
 
@@ -64,6 +68,13 @@ class MapPanel(QWidget):
             layer_key="group_levels",
             visible=True,
         )
+        # Harita katmanları (GeoTIFF + tile + vector)
+        self.maplayers_root = self.layers_tree.add_layer_item(
+            parent_item=None,
+            label="Harita Katmanları",
+            layer_key="group_layers",
+            visible=True,
+        )
 
         self.layers_tree.expandAll()
 
@@ -75,9 +86,9 @@ class MapPanel(QWidget):
             self.on_layer_visibility_changed
         )
 
-        # ---------------------------
+        # ------------------------------------------------------------------
         # SAĞ: WebEngine (Leaflet)
-        # ---------------------------
+        # ------------------------------------------------------------------
         self.map_view = QWebEngineView()
         self.map_view.setObjectName("MapWebView")
 
@@ -90,9 +101,9 @@ class MapPanel(QWidget):
         # Soldaki paneli biraz daha geniş başlat
         splitter.setSizes([320, 880])
 
-        # ---------------------------
-        # ÜST ARAÇ ÇUBUĞU (tamamen temadan boyansın)
-        # ---------------------------
+        # ------------------------------------------------------------------
+        # ÜST ARAÇ ÇUBUĞU
+        # ------------------------------------------------------------------
         self.toolbar = QWidget()
         self.toolbar.setObjectName("MapToolbar")
 
@@ -122,8 +133,8 @@ class MapPanel(QWidget):
 
         # Toolbar yüksekliği sabit kalsın
         self.toolbar.setSizePolicy(
-            QSizePolicy.Policy.Expanding,  # yatayda esnek
-            QSizePolicy.Policy.Fixed,  # dikeyde sabit
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
         )
         self.toolbar.setMinimumHeight(32)
 
@@ -136,36 +147,25 @@ class MapPanel(QWidget):
 
         self.setLayout(main_layout)
 
+        # Python tarafında da saklamak istersen hazır dursun
+        self._map_layers_by_id: dict[int, dict] = {}
+
         # İlk yükleme
         self.refresh_map()
 
     # ------------------ UI eventleri ------------------
 
     def on_offline_tiles_clicked(self):
-        """Offline tile indirme akışını ana pencereden çalıştırır."""
-        if hasattr(self.main_window, "download_offline_tiles_ui"):
-            self.main_window.download_offline_tiles_ui()
-        else:
-            QMessageBox.warning(
-                self,
-                "Eksik Özellik",
-                "Çevrimdışı harita indirme fonksiyonu ana pencerede tanımlı değil.",
-            )
+        """Offline tile indirme akışını ui_actions üzerinden çalıştırır."""
+        action_download_tiles(self.main_window)
 
     def on_import_geotiff_clicked(self):
-        """GeoTIFF ortofoto ekleme akışını ana pencereden çalıştırır."""
-        if hasattr(self.main_window, "import_geotiff_orthophoto"):
-            self.main_window.import_geotiff_orthophoto()
-        else:
-            QMessageBox.warning(
-                self,
-                "Eksik Özellik",
-                "GeoTIFF içe aktarma fonksiyonu ana pencerede tanımlı değil.",
-            )
+        """GeoTIFF ortofoto ekleme akışını ui_actions üzerinden çalıştırır."""
+        action_import_geotiff(self.main_window)
 
     def on_import_vector_clicked(self):
         """
-        Vektör (ör. GeoJSON / Shapefile / GPKG / KML / DXF) katmanı ekleme
+        Vektör (GeoJSON / Shapefile / GPKG / KML / DXF) katmanı ekleme
         akışını ana pencereden çalıştırır.
         """
         if hasattr(self.main_window, "import_vector_layer"):
@@ -185,40 +185,67 @@ class MapPanel(QWidget):
         # Harita payload'ını MAP_ROLE'den okuyoruz
         data = current.data(0, MAP_ROLE)
 
+        # Root grup tıklandıysa (Açmalar / Buluntular / Seviyeler / Harita Katmanları)
         if data is None:
-            # Root grup tıklandı (Açmalar / Buluntular / Seviyeler)
             text = current.text(1) if current.text(1) else current.text(0)
+
             if text == "Açmalar":
-                self.map_view.page().runJavaScript(
-                    "applyFilter(''); focusOnAllTrenches();"
+                js = (
+                    "if (window.applyFilter && window.focusOnAllTrenches) { "
+                    "applyFilter(''); focusOnAllTrenches(); }"
                 )
+                self.map_view.page().runJavaScript(js)
+
             elif text == "Buluntular":
-                self.map_view.page().runJavaScript("applyFilter('buluntular');")
+                js = "if (window.applyFilter) { applyFilter(''); }"
+                self.map_view.page().runJavaScript(js)
+
             elif text == "Seviyeler":
-                # Şimdilik özel bir odak yok; istersen buraya z-range odak ekleriz.
-                pass
+                js = "if (window.applyFilter) { applyFilter(''); }"
+                self.map_view.page().runJavaScript(js)
+
+            # Diğer grup başlıkları için (Harita Katmanları vs.) şimdilik bir şey yapmıyoruz
             return
 
-        item_type, payload = data
+        # Beklenmeyen formatlara karşı koruma
+        try:
+            item_type, payload = data
+        except Exception:
+            return
+
+        js_code = None
 
         if item_type == "trench":
-            js_code = f"applyFilter(''); focusOnTrench({int(payload)});"
-            self.map_view.page().runJavaScript(js_code)
+            js_code = (
+                "if (window.applyFilter && window.focusOnTrench) { "
+                f"applyFilter(''); focusOnTrench({int(payload)}); }}"
+            )
 
         elif item_type == "find":
-            js_code = f"applyFilter(''); focusOnFind({int(payload)});"
-            self.map_view.page().runJavaScript(js_code)
+            js_code = (
+                "if (window.applyFilter && window.focusOnFind) { "
+                f"applyFilter(''); focusOnFind({int(payload)}); }}"
+            )
 
         elif item_type == "level":
             level_name = payload
             escaped = json.dumps(level_name)
-            js_code = f"applyFilter({escaped});"
+            js_code = "if (window.applyFilter) { " f"applyFilter({escaped}); }}"
+
+        if js_code:
+            # Fazladan '}' hatasını engellemek için düzelt
+            js_code = js_code.replace("); }}", "); }")
             self.map_view.page().runJavaScript(js_code)
 
     def on_layer_visibility_changed(self, layer_key: str, visible: bool):
         """
         Photoshop mantığı: Soldaki göz ikonları değişince çağrılır.
-        Buradan Leaflet tarafına "şu layer grubu görünür/gizli" sinyali gönderebiliriz.
+        Buradan Leaflet tarafına "şu layer grubu / layer görünür/gizli" sinyali gönderiyoruz.
+        Örnek:
+          - group_trenches
+          - trench_5
+          - overlay_3
+          - group_layers
         """
         js = (
             "if (window.setLayerVisibilityFromQt) "
@@ -232,6 +259,13 @@ class MapPanel(QWidget):
         """Aktif proje için verileri yükler, sol ağaç panelini ve haritayı yeniler."""
         md: MapData = load_map_data()
 
+        trenches_data = md.trenches
+        finds_data = md.finds
+        layers_data = md.layers
+        center_lat = md.center_lat
+        center_lon = md.center_lon
+        error_message = md.error_message or ""
+
         # --------------------------------------------------
         # SOL AĞAÇ (Açmalar / Buluntular / Seviyeler)
         # --------------------------------------------------
@@ -239,11 +273,12 @@ class MapPanel(QWidget):
         self.trenches_root.takeChildren()
         self.finds_root.takeChildren()
         self.levels_root.takeChildren()
+        self.maplayers_root.takeChildren()
 
-        trenches_by_id: dict[int, dict] = {t["id"]: t for t in md.trenches}
+        trenches_by_id: dict[int, dict] = {t["id"]: t for t in trenches_data}
 
         # --- Açmalar ---
-        for t in md.trenches:
+        for t in trenches_data:
             label = t["code"]
             if t.get("name"):
                 label += f" – {t['name']}"
@@ -253,12 +288,11 @@ class MapPanel(QWidget):
                 layer_key=f"trench_{t['id']}",
                 visible=True,
             )
-            # Haritada kullanacağımız payload:
             item.setData(0, MAP_ROLE, ("trench", t["id"]))
 
         # --- Buluntular → açmalara göre grupla ---
         finds_by_trench: dict[int, list[dict]] = {}
-        for f in md.finds:
+        for f in finds_data:
             finds_by_trench.setdefault(f["trench_id"], []).append(f)
 
         for trench_id, flist in finds_by_trench.items():
@@ -292,7 +326,7 @@ class MapPanel(QWidget):
 
         # --- Seviyeler ---
         levels_map: dict[int, dict] = {}
-        for f in md.finds:
+        for f in finds_data:
             lid = f["level_id"]
             lname = f["level_name"]
             if lid is None or lname is None:
@@ -314,6 +348,32 @@ class MapPanel(QWidget):
             )
             item.setData(0, MAP_ROLE, ("level", info["name"]))
 
+        # --- Harita katmanları (tile + image + vector) ---
+        self._map_layers_by_id.clear()
+        for l in layers_data:
+            lid = l.get("id")
+            lname = l.get("name", f"Katman {lid}")
+            kind = l.get("kind", "layer")
+
+            label = lname
+            if kind == "tile":
+                label += " (Tile)"
+            elif kind == "image":
+                label += " (Görüntü)"
+            elif kind == "vector":
+                label += " (Vektör)"
+
+            item = self.layers_tree.add_layer_item(
+                parent_item=self.maplayers_root,
+                label=label,
+                layer_key=f"overlay_{lid}",
+                visible=True,
+            )
+            # Şimdilik payload’a sadece id koyuyoruz
+            item.setData(0, MAP_ROLE, ("overlay", lid))
+            if lid is not None:
+                self._map_layers_by_id[lid] = l
+
         self.layers_tree.expandAll()
 
         # --------------------------------------------------
@@ -333,24 +393,27 @@ class MapPanel(QWidget):
         # Tema değişkenleri (:root içindeki CSS var'lar)
         theme_vars = build_map_css_vars()
 
-        # JSON veriler (bunlar map_template.html'deki şu satıra gidiyor:
-        # const trenchesData = __TRENCHES_JSON__; vs.)
-        trenches_json = json.dumps(md.trenches, ensure_ascii=False)
-        finds_json = json.dumps(md.finds, ensure_ascii=False)
-        layers_json = json.dumps(md.layers, ensure_ascii=False)
-        error_msg_sanitized = (md.error_message or "").replace('"', '\\"')
+        # JSON veriler
+        trenches_json = json.dumps(trenches_data, ensure_ascii=False)
+        finds_json = json.dumps(finds_data, ensure_ascii=False)
+        layers_json = json.dumps(layers_data, ensure_ascii=False)
 
-        # Placeholder doldurma
+        # Eski JS’te kalan window.vectorLayers bloğu boşa hata vermesin diye:
+        vector_layers = [l for l in layers_data if l.get("kind") == "vector"]
+        vector_layers_json = json.dumps(vector_layers, ensure_ascii=False)
+
+        error_msg_sanitized = (error_message or "").replace('"', '\\"')
+
         html = (
             template_html.replace("__THEME_CSS_VARS__", theme_vars)
             .replace("__TRENCHES_JSON__", trenches_json)
             .replace("__FINDS_JSON__", finds_json)
             .replace("__LAYERS_JSON__", layers_json)
-            .replace("__CENTER_LAT__", str(md.center_lat))
-            .replace("__CENTER_LON__", str(md.center_lon))
+            .replace("__VECTOR_LAYERS_JSON__", vector_layers_json)
+            .replace("__CENTER_LAT__", str(center_lat))
+            .replace("__CENTER_LON__", str(center_lon))
             .replace("__ERROR_MSG__", error_msg_sanitized)
         )
 
-        # HTML’i QWebEngineView’e bas
         base_url = QUrl.fromLocalFile(str(WEB_DIR) + os.sep)
         self.map_view.setHtml(html, base_url)
